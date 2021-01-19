@@ -1,0 +1,42 @@
+# Bot
+
+Richard is a friendly bot who loves FOSS.
+It get into a room and speak whenever he wants.
+
+# Features
+
+- says hello, he is a gentleman
+- speaks when he sees a new Outscale API version on production
+
+# Build
+
+1. Install [Rustlang](https://www.rust-lang.org/)
+2. Run `cargo build --release`
+
+# Configure
+
+Parameters are passed through environment variables.
+
+- `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
+- `ROOM_ID`: you can get room id in webex desktop application in `help -> copy space details`.
+- `DEBUG`: if set to a non-empty string, this will avoid sending a message on webex.
+
+You can configure many regions (up to 100). Each region has a number starting from 0 to 99:
+- `REGION_0_NAME`: friendly name for this region (e.g. "eu-west-2")
+- `REGION_0_ENDPOINT`: whole endpoint URL (e.g. "https://api.eu-west-2.outscale.com/api/v1/")
+
+As a facility, you can:
+1. copy `config.env.ori` to `config.env`
+2. edit `config.env`
+3. load options by running `source config.env`
+
+# Run
+
+1. build or get pre-compiled binary
+2. set configuration
+3. `./richard`
+
+
+# External resources
+
+- [Webex API reference](https://developer.webex.com/docs/api/basics)
