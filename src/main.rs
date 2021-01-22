@@ -1,5 +1,6 @@
 /* Copyright Outscale SAS */
 use clokwerk::{Scheduler, TimeUnits};
+use rand::seq::IteratorRandom;
 use std::env;
 use std::process::exit;
 use std::thread::sleep;
@@ -151,7 +152,11 @@ impl Bot {
     }
 
     fn hello(&self) {
-        self.say(&"Hello free software lovers".to_string());
+        const RMS_QUOTES: &'static [&'static str] = &include!("rms_quotes.rs");
+        let mut rng = rand::thread_rng();
+        if let Some(quote) = RMS_QUOTES.iter().choose(&mut rng) {
+            self.say(&quote.to_string());
+        }
     }
 
     fn run(&mut self) {
@@ -185,6 +190,5 @@ fn main() {
         eprintln!("error: {}", e);
         exit(1);
     }
-
     bot.run()
 }
