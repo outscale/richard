@@ -1,6 +1,7 @@
 /* Copyright Outscale SAS */
 use clokwerk::{Scheduler, TimeUnits};
 use rand::seq::IteratorRandom;
+use std::cmp::min;
 use std::env;
 use std::process::exit;
 use std::thread::sleep;
@@ -12,6 +13,8 @@ struct OscEndpoint {
     name: String,
     endpoint: String,
     version: Option<String>,
+    alive: bool,
+    access_failure_cnt: u8,
 }
 
 impl OscEndpoint {
@@ -30,6 +33,25 @@ impl OscEndpoint {
     fn get_version(&self) -> Result<String, ureq::Error> {
         let json: serde_json::Value = ureq::post(&self.endpoint).call()?.into_json()?;
         Ok(json["Version"].to_string())
+    }
+
+    fn update_alive(&mut self) -> (bool, bool) {
+        // Schmitt Trigger based on the number of errors
+        // https://en.wikipedia.org/wiki/Schmitt_trigger
+        const LOW: u8 = 3;
+        const HIGH: u8 = 6;
+        const MAX_HIGH: u8 = 10;
+        let alive_old = self.alive;
+        self.access_failure_cnt = match self.get_version() {
+            Ok(_) => self.access_failure_cnt.saturating_sub(1),
+            Err(_) => min(self.access_failure_cnt.saturating_add(1), MAX_HIGH),
+        };
+        self.alive = match (self.alive, self.access_failure_cnt) {
+            (true, HIGH) => false,
+            (false, LOW) => true,
+            _ => self.alive,
+        };
+        (alive_old, self.alive)
     }
 }
 
@@ -96,6 +118,8 @@ impl Bot {
                         name: name,
                         endpoint: endpoint,
                         version: None,
+                        alive: true,
+                        access_failure_cnt: 0,
                     };
                     endpoints.push(new);
                 }
@@ -137,6 +161,11 @@ impl Bot {
             eprintln!("error: {}", e);
         }
     }
+    fn say_messages(&self, messages: Vec<String>) {
+        for message in messages.iter() {
+            self.say(message);
+        }
+    }
 
     fn endpoint_version_update(&mut self) {
         let mut messages = Vec::<String>::new();
@@ -146,9 +175,23 @@ impl Bot {
                 messages.push(format!("New API version on {}: {}", endpoint.name, v));
             }
         }
-        for message in messages.iter() {
-            self.say(message);
+        self.say_messages(messages);
+    }
+
+    fn api_online_check(&mut self) {
+        let mut messages = Vec::<String>::new();
+        for endpoint in self.endpoints.iter_mut() {
+            print!("checking if {} region is alive: ", endpoint.name);
+            match endpoint.update_alive() {
+                (true, false) => {
+                    messages.push(format!("API on {} region went down", endpoint.name))
+                }
+                (false, true) => messages.push(format!("API on {} region went up", endpoint.name)),
+                _ => {}
+            };
+            println!("{}", endpoint.alive);
         }
+        self.say_messages(messages);
     }
 
     fn hello(&self) {
@@ -161,6 +204,7 @@ impl Bot {
 
     fn run(&mut self) {
         let mut scheduler = Scheduler::new();
+        // TODO: fix multiple clone
         let mut bot = self.clone();
         scheduler
             .every(600.seconds())
@@ -170,6 +214,10 @@ impl Bot {
             .every(1.day())
             .at("08:00 am")
             .run(move || bot.hello());
+        let mut bot = self.clone();
+        scheduler
+            .every(20.second())
+            .run(move || bot.api_online_check());
         loop {
             scheduler.run_pending();
             sleep(Duration::from_millis(100));

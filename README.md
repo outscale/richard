@@ -7,6 +7,7 @@ It get into a room and speak whenever he wants.
 
 - says hello, he is a gentleman
 - speaks when he sees a new Outscale API version on production
+- speaks when a region seems to be down or back on
 
 # Build
 
