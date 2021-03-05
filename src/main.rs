@@ -1,5 +1,6 @@
 /* Copyright Outscale SAS */
 use clokwerk::{Scheduler, TimeUnits};
+use clokwerk::Interval::Monday;
 use rand::seq::IteratorRandom;
 use std::cmp::min;
 use std::env;
@@ -211,7 +212,7 @@ impl Bot {
             .run(move || bot.endpoint_version_update());
         let bot = self.clone();
         scheduler
-            .every(1.day())
+            .every(Monday)
             .at("08:00 am")
             .run(move || bot.hello());
         let mut bot = self.clone();
