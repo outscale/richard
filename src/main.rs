@@ -1,6 +1,6 @@
 /* Copyright Outscale SAS */
-use clokwerk::{Scheduler, TimeUnits};
 use clokwerk::Interval::Monday;
+use clokwerk::{Scheduler, TimeUnits};
 use rand::seq::IteratorRandom;
 use std::cmp::min;
 use std::env;
@@ -8,6 +8,13 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 use ureq;
+
+const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+
+fn request_agent() -> ureq::Agent {
+    let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
+    ureq::AgentBuilder::new().timeout(default_duration).build()
+}
 
 #[derive(Clone)]
 struct OscEndpoint {
@@ -32,7 +39,7 @@ impl OscEndpoint {
     }
 
     fn get_version(&self) -> Result<String, ureq::Error> {
-        let json: serde_json::Value = ureq::post(&self.endpoint).call()?.into_json()?;
+        let json: serde_json::Value = request_agent().post(&self.endpoint).call()?.into_json()?;
         Ok(json["Version"].to_string())
     }
 
@@ -138,7 +145,7 @@ impl Bot {
             self.room_id
         );
         let auth = format!("Bearer {}", self.webex_token);
-        if let Err(e) = ureq::get(&url).set("Authorization", &auth).call() {
+        if let Err(e) = request_agent().get(&url).set("Authorization", &auth).call() {
             println!("KO");
             return Err(e);
         }
@@ -152,7 +159,8 @@ impl Bot {
             return;
         }
         let auth = format!("Bearer {}", self.webex_token);
-        let resp = ureq::post("https://webexapis.com/v1/messages")
+        let resp = request_agent()
+            .post("https://webexapis.com/v1/messages")
             .set("Authorization", &auth)
             .send_json(ureq::json!({
             "roomId": &self.room_id,
