@@ -65,7 +65,7 @@ impl OscEndpoint {
 
 #[derive(Clone)]
 struct Bot {
-    room_id: String,
+    webex_room_id: String,
     webex_auth_header: String,
     endpoints: Vec<OscEndpoint>,
     debug: bool,
@@ -75,7 +75,7 @@ impl Bot {
     fn load() -> Option<Self> {
         let webex_token = Bot::load_env("WEBEX_TOKEN", true)?;
         Some(Bot {
-            room_id: Bot::load_env("ROOM_ID", true)?,
+            webex_room_id: Bot::load_env("WEBEX_ROOM_ID", true)?,
             webex_auth_header: format!("Bearer {}", webex_token),
             endpoints: Bot::load_endpoints(),
             debug: Bot::load_debug(),
@@ -164,7 +164,7 @@ impl Bot {
         print!("checking Webex API: ");
         let url = format!(
             "https://webexapis.com/v1/rooms/{}/meetingInfo",
-            self.room_id
+            self.webex_room_id
         );
         if let Err(e) = self.webex_get(&url).call() {
             println!("KO");
@@ -182,7 +182,7 @@ impl Bot {
         let resp = self
             .webex_post("https://webexapis.com/v1/messages")
             .send_json(ureq::json!({
-            "roomId": &self.room_id,
+            "roomId": &self.webex_room_id,
             "text": &message
             }));
         if let Err(e) = resp {
