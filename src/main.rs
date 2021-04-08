@@ -66,16 +66,17 @@ impl OscEndpoint {
 #[derive(Clone)]
 struct Bot {
     room_id: String,
-    webex_token: String,
+    webex_auth_header: String,
     endpoints: Vec<OscEndpoint>,
     debug: bool,
 }
 
 impl Bot {
     fn load() -> Option<Self> {
+        let webex_token = Bot::load_env("WEBEX_TOKEN", true)?;
         Some(Bot {
             room_id: Bot::load_env("ROOM_ID", true)?,
-            webex_token: Bot::load_env("WEBEX_TOKEN", true)?,
+            webex_auth_header: format!("Bearer {}", webex_token),
             endpoints: Bot::load_endpoints(),
             debug: Bot::load_debug(),
         })
@@ -138,14 +139,34 @@ impl Bot {
         return endpoints;
     }
 
+    fn webex_post<T: Into<String>>(&self, url: T) -> ureq::Request {
+        let url = url.into();
+        let agent = request_agent();
+        return agent
+            .post(&url)
+            .set("Authorization", &self.webex_auth_header);
+    }
+
+    fn webex_get<T: Into<String>>(&self, url: T) -> ureq::Request {
+        let url = url.into();
+        let agent = request_agent();
+        return agent
+            .get(&url)
+            .set("Authorization", &self.webex_auth_header);
+    }
+
     fn check(&self) -> Result<(), ureq::Error> {
-        print!("checking webex API: ");
+        self.check_webex_api()?;
+        Ok(())
+    }
+
+    fn check_webex_api(&self) -> Result<(), ureq::Error> {
+        print!("checking Webex API: ");
         let url = format!(
             "https://webexapis.com/v1/rooms/{}/meetingInfo",
             self.room_id
         );
-        let auth = format!("Bearer {}", self.webex_token);
-        if let Err(e) = request_agent().get(&url).set("Authorization", &auth).call() {
+        if let Err(e) = self.webex_get(&url).call() {
             println!("KO");
             return Err(e);
         }
@@ -158,10 +179,8 @@ impl Bot {
         if self.debug {
             return;
         }
-        let auth = format!("Bearer {}", self.webex_token);
-        let resp = request_agent()
-            .post("https://webexapis.com/v1/messages")
-            .set("Authorization", &auth)
+        let resp = self
+            .webex_post("https://webexapis.com/v1/messages")
             .send_json(ureq::json!({
             "roomId": &self.room_id,
             "text": &message
