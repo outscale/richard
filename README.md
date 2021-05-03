@@ -19,7 +19,7 @@ It get into a room and speak whenever he wants.
 Parameters are passed through environment variables.
 
 - `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
-- `ROOM_ID`: you can get room id in webex desktop application in `help -> copy space details`.
+- `ROOM_ID`: you can get room id by listing rooms (see below)
 - `DEBUG`: if set to a non-empty string, this will avoid sending a message on webex.
 
 You can configure many regions (up to 100). Each region has a number starting from 0 to 99:
@@ -31,12 +31,15 @@ As a facility, you can:
 2. edit `config.env`
 3. load options by running `source config.env`
 
+## Listing room ids and details
+
+curl -H "Authorization: Bearer ${WEBEX_TOKEN}" "https://webexapis.com/v1/rooms" | jq
+
 # Run
 
 1. build or get pre-compiled binary
 2. set configuration
 3. `./richard`
-
 
 # External resources
 
