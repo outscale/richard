@@ -17,6 +17,56 @@ fn request_agent() -> ureq::Agent {
 }
 
 #[derive(Clone)]
+struct WebexAgent {
+    auth_header: String,
+    room_id: String,
+}
+
+impl WebexAgent {
+    fn new(token: String, room_id: String) -> WebexAgent {
+        WebexAgent {
+            auth_header: format!("Bearer {}", token),
+            room_id: room_id,
+        }
+    }
+
+    fn post<T: Into<String>>(&self, url: T) -> ureq::Request {
+        let url = url.into();
+        let agent = request_agent();
+        return agent.post(&url).set("Authorization", &self.auth_header);
+    }
+
+    fn get<T: Into<String>>(&self, url: T) -> ureq::Request {
+        let url = url.into();
+        let agent = request_agent();
+        return agent.get(&url).set("Authorization", &self.auth_header);
+    }
+
+    fn check(&self) -> Result<(), ureq::Error> {
+        print!("checking Webex API: ");
+        let url = format!(
+            "https://webexapis.com/v1/rooms/{}/meetingInfo",
+            self.room_id
+        );
+        if let Err(e) = self.get(&url).call() {
+            println!("KO");
+            return Err(e);
+        }
+        println!("OK");
+        return Ok(());
+    }
+
+    fn say<S: Into<String>>(&self, message: S) -> Result<(), ureq::Error> {
+        self.post("https://webexapis.com/v1/messages")
+            .send_json(ureq::json!({
+            "roomId": &self.room_id,
+            "text": &message.into()
+            }))?;
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
 struct OscEndpoint {
     name: String,
     endpoint: String,
@@ -65,8 +115,7 @@ impl OscEndpoint {
 
 #[derive(Clone)]
 struct Bot {
-    webex_room_id: String,
-    webex_auth_header: String,
+    webex_agent: WebexAgent,
     endpoints: Vec<OscEndpoint>,
     debug: bool,
 }
@@ -74,9 +123,9 @@ struct Bot {
 impl Bot {
     fn load() -> Option<Self> {
         let webex_token = Bot::load_env("WEBEX_TOKEN", true)?;
+        let webex_room_id = Bot::load_env("WEBEX_ROOM_ID", true)?;
         Some(Bot {
-            webex_room_id: Bot::load_env("WEBEX_ROOM_ID", true)?,
-            webex_auth_header: format!("Bearer {}", webex_token),
+            webex_agent: WebexAgent::new(webex_token, webex_room_id),
             endpoints: Bot::load_endpoints(),
             debug: Bot::load_debug(),
         })
@@ -139,39 +188,9 @@ impl Bot {
         return endpoints;
     }
 
-    fn webex_post<T: Into<String>>(&self, url: T) -> ureq::Request {
-        let url = url.into();
-        let agent = request_agent();
-        return agent
-            .post(&url)
-            .set("Authorization", &self.webex_auth_header);
-    }
-
-    fn webex_get<T: Into<String>>(&self, url: T) -> ureq::Request {
-        let url = url.into();
-        let agent = request_agent();
-        return agent
-            .get(&url)
-            .set("Authorization", &self.webex_auth_header);
-    }
-
     fn check(&self) -> Result<(), ureq::Error> {
-        self.check_webex_api()?;
+        self.webex_agent.check()?;
         Ok(())
-    }
-
-    fn check_webex_api(&self) -> Result<(), ureq::Error> {
-        print!("checking Webex API: ");
-        let url = format!(
-            "https://webexapis.com/v1/rooms/{}/meetingInfo",
-            self.webex_room_id
-        );
-        if let Err(e) = self.webex_get(&url).call() {
-            println!("KO");
-            return Err(e);
-        }
-        println!("OK");
-        return Ok(());
     }
 
     fn say(&self, message: &String) {
@@ -179,13 +198,7 @@ impl Bot {
         if self.debug {
             return;
         }
-        let resp = self
-            .webex_post("https://webexapis.com/v1/messages")
-            .send_json(ureq::json!({
-            "roomId": &self.webex_room_id,
-            "text": &message
-            }));
-        if let Err(e) = resp {
+        if let Err(e) = self.webex_agent.say(message) {
             eprintln!("error: {}", e);
         }
     }
