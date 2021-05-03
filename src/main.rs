@@ -8,6 +8,7 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 use ureq;
+use serde::Deserialize;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 
@@ -20,6 +21,7 @@ fn request_agent() -> ureq::Agent {
 struct WebexAgent {
     auth_header: String,
     room_id: String,
+    last_unread_message_date: Option<String>,
 }
 
 impl WebexAgent {
@@ -27,6 +29,7 @@ impl WebexAgent {
         WebexAgent {
             auth_header: format!("Bearer {}", token),
             room_id: room_id,
+	    last_unread_message_date: None,
         }
     }
 
@@ -64,6 +67,58 @@ impl WebexAgent {
             }))?;
         Ok(())
     }
+
+    fn respond<P, M>(&self, parent: P, message: M) -> Result<(), ureq::Error> where
+	P: Into<String>, M: Into<String> {
+        self.post("https://webexapis.com/v1/messages")
+            .send_json(ureq::json!({
+            "roomId": &self.room_id,
+            "parentId": &parent.into(),
+            "text": &message.into()
+            }))?;
+        Ok(())
+    }
+
+    fn unread_messages(&mut self) -> Result<WebexMessages, ureq::Error> {
+	let url = format!(
+	    "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
+	    self.room_id);
+	let call = self.get(&url).call()?;
+	let mut res: WebexMessages = call.into_json()?;
+
+	// Sort messages by date
+	res.items.sort_by(|a, b| a.created.cmp(&b.created));
+
+	// Filter seen messages
+	if let Some(last) = &self.last_unread_message_date {
+	    res.items.retain(|m| m.created > *last);
+	}
+
+	// Update last seen date
+	if let Some(m) = res.items.iter().last() {
+	    let date = Some(m.created.clone());
+	    if self.last_unread_message_date.is_none() {
+		res.items.clear();
+	    }
+	    self.last_unread_message_date = date;
+	} else if self.last_unread_message_date.is_none() {
+	    self.last_unread_message_date = Some(String::from("0"));
+	}
+	
+	Ok(res)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct WebexMessages {
+    items: Vec<WebexMessage>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct WebexMessage {
+    id: String,
+    text: String,
+    created: String,
 }
 
 #[derive(Clone)]
@@ -193,7 +248,8 @@ impl Bot {
         Ok(())
     }
 
-    fn say(&self, message: &String) {
+    fn say<S: Into<String>>(&self, message: S) {
+	let message = message.into();
         println!("bot says: {}", message);
         if self.debug {
             return;
@@ -202,6 +258,20 @@ impl Bot {
             eprintln!("error: {}", e);
         }
     }
+
+    fn respond<P, M>(&self, parent: P, message: M) where
+	P: Into<String>, M: Into<String> {
+	let parent = parent.into();
+	let message = message.into();
+        println!("bot respond: {}", message);
+        if self.debug {
+            return;
+        }
+        if let Err(e) = self.webex_agent.respond(parent, message) {
+            eprintln!("error: {}", e);
+        }
+    }
+
     fn say_messages(&self, messages: Vec<String>) {
         for message in messages.iter() {
             self.say(message);
@@ -243,6 +313,20 @@ impl Bot {
         }
     }
 
+    fn actions(&mut self) {
+	match self.webex_agent.unread_messages() {
+	    Ok(messages) => {
+		for m in messages.items {
+		    println!("received message: {}", m.text);
+		    if m.text.contains("ping") {
+			self.respond(m.id, "pong");
+		    }
+		}
+	    },
+	    Err(e) => eprintln!("error: (reading messages) {}", e),
+	};
+    }
+
     fn run(&mut self) {
         let mut scheduler = Scheduler::new();
         // TODO: fix multiple clone
@@ -259,6 +343,10 @@ impl Bot {
         scheduler
             .every(20.second())
             .run(move || bot.api_online_check());
+	let mut bot = self.clone();
+        scheduler
+            .every(10.second())
+            .run(move || bot.actions());
         loop {
             scheduler.run_pending();
             sleep(Duration::from_millis(100));
