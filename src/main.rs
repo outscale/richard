@@ -2,13 +2,14 @@
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
 use rand::seq::IteratorRandom;
+use serde::Deserialize;
 use std::cmp::min;
 use std::env;
 use std::process::exit;
+use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
 use ureq;
-use serde::Deserialize;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 
@@ -29,7 +30,7 @@ impl WebexAgent {
         WebexAgent {
             auth_header: format!("Bearer {}", token),
             room_id: room_id,
-	    last_unread_message_date: None,
+            last_unread_message_date: None,
         }
     }
 
@@ -68,8 +69,11 @@ impl WebexAgent {
         Ok(())
     }
 
-    fn respond<P, M>(&self, parent: P, message: M) -> Result<(), ureq::Error> where
-	P: Into<String>, M: Into<String> {
+    fn respond<P, M>(&self, parent: P, message: M) -> Result<(), ureq::Error>
+    where
+        P: Into<String>,
+        M: Into<String>,
+    {
         self.post("https://webexapis.com/v1/messages")
             .send_json(ureq::json!({
             "roomId": &self.room_id,
@@ -80,32 +84,33 @@ impl WebexAgent {
     }
 
     fn unread_messages(&mut self) -> Result<WebexMessages, ureq::Error> {
-	let url = format!(
-	    "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
-	    self.room_id);
-	let call = self.get(&url).call()?;
-	let mut res: WebexMessages = call.into_json()?;
+        let url = format!(
+            "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
+            self.room_id
+        );
+        let call = self.get(&url).call()?;
+        let mut res: WebexMessages = call.into_json()?;
 
-	// Sort messages by date
-	res.items.sort_by(|a, b| a.created.cmp(&b.created));
+        // Sort messages by date
+        res.items.sort_by(|a, b| a.created.cmp(&b.created));
 
-	// Filter seen messages
-	if let Some(last) = &self.last_unread_message_date {
-	    res.items.retain(|m| m.created > *last);
-	}
+        // Filter seen messages
+        if let Some(last) = &self.last_unread_message_date {
+            res.items.retain(|m| m.created > *last);
+        }
 
-	// Update last seen date
-	if let Some(m) = res.items.iter().last() {
-	    let date = Some(m.created.clone());
-	    if self.last_unread_message_date.is_none() {
-		res.items.clear();
-	    }
-	    self.last_unread_message_date = date;
-	} else if self.last_unread_message_date.is_none() {
-	    self.last_unread_message_date = Some(String::from("0"));
-	}
-	
-	Ok(res)
+        // Update last seen date
+        if let Some(m) = res.items.iter().last() {
+            let date = Some(m.created.clone());
+            if self.last_unread_message_date.is_none() {
+                res.items.clear();
+            }
+            self.last_unread_message_date = date;
+        } else if self.last_unread_message_date.is_none() {
+            self.last_unread_message_date = Some(String::from("0"));
+        }
+
+        Ok(res)
     }
 }
 
@@ -249,7 +254,7 @@ impl Bot {
     }
 
     fn say<S: Into<String>>(&self, message: S) {
-	let message = message.into();
+        let message = message.into();
         println!("bot says: {}", message);
         if self.debug {
             return;
@@ -259,10 +264,13 @@ impl Bot {
         }
     }
 
-    fn respond<P, M>(&self, parent: P, message: M) where
-	P: Into<String>, M: Into<String> {
-	let parent = parent.into();
-	let message = message.into();
+    fn respond<P, M>(&self, parent: P, message: M)
+    where
+        P: Into<String>,
+        M: Into<String>,
+    {
+        let parent = parent.into();
+        let message = message.into();
         println!("bot respond: {}", message);
         if self.debug {
             return;
@@ -314,48 +322,60 @@ impl Bot {
     }
 
     fn actions(&mut self) {
-	match self.webex_agent.unread_messages() {
-	    Ok(messages) => {
-		for m in messages.items {
-		    println!("received message: {}", m.text);
-		    if m.text.contains("ping") {
-			self.respond(m.id, "pong");
-		    }
-		}
-	    },
-	    Err(e) => eprintln!("error: (reading messages) {}", e),
-	};
+        match self.webex_agent.unread_messages() {
+            Ok(messages) => {
+                for m in messages.items {
+                    println!("received message: {}", m.text);
+                    if m.text.contains("ping") {
+                        self.respond(m.id, "pong");
+                    }
+                }
+            }
+            Err(e) => eprintln!("error: (reading messages) {}", e),
+        };
     }
+}
 
-    fn run(&mut self) {
-        let mut scheduler = Scheduler::new();
-        // TODO: fix multiple clone
-        let mut bot = self.clone();
-        scheduler
-            .every(600.seconds())
-            .run(move || bot.endpoint_version_update());
-        let bot = self.clone();
-        scheduler
-            .every(Monday)
-            .at("08:00 am")
-            .run(move || bot.hello());
-        let mut bot = self.clone();
-        scheduler
-            .every(20.second())
-            .run(move || bot.api_online_check());
-	let mut bot = self.clone();
-        scheduler
-            .every(10.second())
-            .run(move || bot.actions());
-        loop {
-            scheduler.run_pending();
-            sleep(Duration::from_millis(100));
+fn run_scheduler(bot: Bot) {
+    let mut scheduler = Scheduler::new();
+    let shared_bot = Arc::new(RwLock::new(bot));
+
+    let sb = shared_bot.clone();
+    scheduler.every(600.seconds()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.endpoint_version_update();
         }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(Monday).at("08:00 am").run(move || {
+        if let Ok(bot) = sb.read() {
+            bot.hello();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(20.second()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.api_online_check();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(10.second()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.actions();
+        }
+    });
+
+    loop {
+        scheduler.run_pending();
+        sleep(Duration::from_millis(100));
     }
 }
 
 fn main() {
-    let mut bot = match Bot::load() {
+    let bot = match Bot::load() {
         Some(b) => b,
         None => {
             eprintln!("bot requirements are not met. exiting.");
@@ -367,5 +387,5 @@ fn main() {
         eprintln!("error: {}", e);
         exit(1);
     }
-    bot.run()
+    run_scheduler(bot);
 }
