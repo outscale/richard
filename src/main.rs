@@ -328,11 +328,28 @@ impl Bot {
                     println!("received message: {}", m.text);
                     if m.text.contains("ping") {
                         self.respond(m.id, "pong");
+                    } else if m.text.contains("status") {
+                        self.respond_status(&m.id);
+                    } else {
+                        println!("ignoring message");
                     }
                 }
             }
             Err(e) => eprintln!("error: (reading messages) {}", e),
         };
+    }
+
+    fn respond_status<S: Into<String>>(&self, parent: S) {
+        let mut response = String::new();
+        for e in &self.endpoints {
+            let version = match &e.version {
+                Some(v) => v.clone(),
+                None => "unkown".to_string(),
+            };
+            let s = format!("{}: alive={}, version={}\n", e.name, e.alive, version);
+            response.push_str(s.as_str());
+        }
+        self.respond(parent, response);
     }
 }
 
