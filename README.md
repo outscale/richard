@@ -8,6 +8,13 @@ It get into a room and speak whenever he wants.
 - says hello, he is a gentleman
 - speaks when he sees a new Outscale API version on production
 - speaks when a region seems to be down or back on
+- respond to few commands
+
+## Commands
+
+Commands are read when Richard is notified in the configured room.
+- `ping`: respond `pong`
+- `status`: provide region status
 
 # Build
 
