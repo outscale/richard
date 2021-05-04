@@ -19,7 +19,7 @@ It get into a room and speak whenever he wants.
 Parameters are passed through environment variables.
 
 - `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
-- `ROOM_ID`: you can get room id by listing rooms (see below)
+- `WEBEX_ROOM_ID`: you can get room id by listing rooms (see below)
 - `DEBUG`: if set to a non-empty string, this will avoid sending a message on webex.
 
 You can configure many regions (up to 100). Each region has a number starting from 0 to 99:
