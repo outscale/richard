@@ -15,6 +15,7 @@ It get into a room and speak whenever he wants.
 Commands are read when Richard is notified in the configured room.
 - `ping`: respond `pong`
 - `status`: provide region status
+- `emacs`: don't trigger this
 
 # Build
 

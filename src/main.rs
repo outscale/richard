@@ -330,6 +330,8 @@ impl Bot {
                         self.respond(m.id, "pong");
                     } else if m.text.contains("status") {
                         self.respond_status(&m.id);
+                    } else if m.text.contains("emacs") {
+                        self.respond(m.id, "You should consider repentance. See https://www.gnu.org/fun/jokes/gospel.html")
                     } else {
                         println!("ignoring message");
                     }
