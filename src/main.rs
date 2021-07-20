@@ -133,6 +133,7 @@ struct OscEndpoint {
     version: Option<String>,
     alive: bool,
     access_failure_cnt: u8,
+    last_error_code: Option<u16>,
 }
 
 impl OscEndpoint {
@@ -162,7 +163,13 @@ impl OscEndpoint {
         let alive_old = self.alive;
         self.access_failure_cnt = match self.get_version() {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
-            Err(_) => min(self.access_failure_cnt.saturating_add(1), MAX_HIGH),
+            Err(error) => {
+                match error {
+                    ureq::Error::Status(code, _) => self.last_error_code = Some(code),
+                    _ => {}
+                };
+                min(self.access_failure_cnt.saturating_add(1), MAX_HIGH)
+            }
         };
         self.alive = match (self.alive, self.access_failure_cnt) {
             (true, HIGH) => false,
@@ -238,6 +245,7 @@ impl Bot {
                         version: None,
                         alive: true,
                         access_failure_cnt: 0,
+                        last_error_code: None,
                     };
                     endpoints.push(new);
                 }
@@ -303,7 +311,10 @@ impl Bot {
             print!("checking if {} region is alive: ", endpoint.name);
             match endpoint.update_alive() {
                 (true, false) => {
-                    messages.push(format!("API on {} region went down", endpoint.name))
+		    match endpoint.last_error_code {
+			Some(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
+			_ => messages.push(format!("API on {} region went down", endpoint.name)),
+		    }
                 }
                 (false, true) => messages.push(format!("API on {} region went up", endpoint.name)),
                 _ => {}
