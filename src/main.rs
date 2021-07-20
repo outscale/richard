@@ -12,6 +12,7 @@ use std::time::Duration;
 use ureq;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+const HIGH_ERROR_RATE: f32 = 0.1;
 
 fn request_agent() -> ureq::Agent {
     let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
@@ -134,6 +135,9 @@ struct OscEndpoint {
     alive: bool,
     access_failure_cnt: u8,
     last_error_code: Option<u16>,
+    error_rate_acc: f32,
+    error_rate_cnt: u32,
+    error_rate: f32,
 }
 
 impl OscEndpoint {
@@ -177,6 +181,22 @@ impl OscEndpoint {
             _ => self.alive,
         };
         (alive_old, self.alive)
+    }
+
+    fn update_error_rate(&mut self) -> Option<f32> {
+        // A simple sliding mean, only providing value once sliding window is full.
+        const SIZE: f32 = 100.0;
+        self.error_rate_acc = match self.get_version() {
+            Ok(_) => self.error_rate_acc + 0.0 - self.error_rate,
+            Err(_) => self.error_rate_acc + 1.0 - self.error_rate,
+        };
+        self.error_rate = self.error_rate_acc / SIZE;
+        self.error_rate_cnt = self.error_rate_cnt.saturating_add(1);
+        if self.error_rate_cnt >= SIZE as u32 {
+            return Some(self.error_rate);
+        } else {
+            return None;
+        }
     }
 }
 
@@ -246,6 +266,9 @@ impl Bot {
                         alive: true,
                         access_failure_cnt: 0,
                         last_error_code: None,
+                        error_rate_acc: 0.0,
+                        error_rate_cnt: 0,
+                        error_rate: 0.0,
                     };
                     endpoints.push(new);
                 }
@@ -305,6 +328,20 @@ impl Bot {
         self.say_messages(messages);
     }
 
+    fn endpoint_error_rate_update(&mut self) {
+        for endpoint in self.endpoints.iter_mut() {
+            if let Some(error_rate) = endpoint.update_error_rate() {
+                if error_rate > HIGH_ERROR_RATE {
+                    println!(
+                        "high error rate on {}: {:?}%",
+                        endpoint.name,
+                        (error_rate * 100.0) as u32
+                    );
+                }
+            }
+        }
+    }
+
     fn api_online_check(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
@@ -359,7 +396,10 @@ impl Bot {
                 Some(v) => v.clone(),
                 None => "unkown".to_string(),
             };
-            let s = format!("{}: alive={}, version={}\n", e.name, e.alive, version);
+            let s = format!(
+                "{}: alive={}, version={}, error_rate={}\n",
+                e.name, e.alive, version, e.error_rate
+            );
             response.push_str(s.as_str());
         }
         self.respond(parent, response);
@@ -374,6 +414,13 @@ fn run_scheduler(bot: Bot) {
     scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.endpoint_version_update();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(2.seconds()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.endpoint_error_rate_update();
         }
     });
 
