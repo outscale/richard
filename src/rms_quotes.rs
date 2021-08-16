@@ -38,4 +38,5 @@ Proprietary software rejects their thirst for knowledge: it says, “The knowled
     "People sometimes ask me if it is a sin in the Church of Emacs to use vi. Using a free version of vi is not a sin; it is a penance. So happy hacking.",
     "I could have made money this way, and perhaps amused myself writing code. But I knew that at the end of my career, I would look back on years of building walls to divide people, and feel I had spent my life making the world a worse place.",
     "Stallman's Law (2012): While corporations dominate society and write the laws, each advance in technology is an opening for them to further restrict its users.",
+    "I did write some code in Java once, but that was the island in Indonesia.",
 ]
