@@ -1,5 +1,5 @@
 /* Copyright Outscale SAS */
-use clokwerk::Interval::Monday;
+use clokwerk::Interval::{Monday, Sunday};
 use clokwerk::{Scheduler, TimeUnits};
 use rand::seq::IteratorRandom;
 use serde::Deserialize;
@@ -10,6 +10,7 @@ use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
 use ureq;
+use std::process::Command;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -369,6 +370,37 @@ impl Bot {
         }
     }
 
+    fn clean_cloud_accounts(&self) {
+	let output = match Command::new("frieza")
+            .arg("clean")
+	    .arg("--auto-approve")
+            .arg("customerToolingCleanState")
+            .output() {
+		Ok(out) => out,
+		Err(e) => {
+		    eprintln!("Cannot call frieza: {}", e);
+		    return
+		}
+	    };
+	let stdout = match String::from_utf8(output.stdout) {
+	    Ok(s) => s,
+	    Err(e) => {
+		eprintln!("Cannot parse stdout from frieza: {}", e);
+		return;
+	    }
+	};
+	let stderr = match String::from_utf8(output.stderr) {
+	    Ok(s) => s,
+	    Err(e) => {
+		eprintln!("Cannot parse stderr from frieza: {}", e);
+		return;
+	    }
+	};
+	println!("frieza exited with return code {}", output.status);
+	println!("frieza stderr: {}", stderr);
+	println!("frieza stderr: {}", stdout);
+    }
+
     fn actions(&mut self) {
         match self.webex_agent.unread_messages() {
             Ok(messages) => {
@@ -442,6 +474,13 @@ fn run_scheduler(bot: Bot) {
     scheduler.every(10.second()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.actions();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(Sunday).at("09:00 pm").run(move || {
+        if let Ok(bot) = sb.read() {
+	    bot.clean_cloud_accounts();
         }
     });
 
