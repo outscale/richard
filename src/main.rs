@@ -351,7 +351,7 @@ impl Bot {
                 (true, false) => {
 		    match endpoint.last_error_code {
 			Some(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
-			_ => messages.push(format!("API on {} region went down", endpoint.name)),
+			err => messages.push(format!("API on {} region went down ({:?})", endpoint.name, err)),
 		    }
                 }
                 (false, true) => messages.push(format!("API on {} region went up", endpoint.name)),
