@@ -171,7 +171,7 @@ impl OscEndpoint {
             Err(error) => {
                 match error {
                     ureq::Error::Status(code, _) => self.last_error_code = Some(code),
-                    _ => {}
+                    ureq::Error::Transport(transport) => eprintln!("Transport error: {:?}", transport),
                 };
                 min(self.access_failure_cnt.saturating_add(1), MAX_HIGH)
             }
