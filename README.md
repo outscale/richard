@@ -22,6 +22,10 @@ Commands are read when Richard is notified in the configured room.
 1. Install [Rustlang](https://www.rust-lang.org/)
 2. Run `cargo build --release`
 
+If you need to have a static binary:
+1. Install musl toolchain: `rustup target add x86_64-unknown-linux-musl`
+2. Build with `cargo build --target x86_64-unknown-linux-musl --release`
+
 # Configure
 
 Parameters are passed through environment variables.
