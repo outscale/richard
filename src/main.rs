@@ -135,10 +135,25 @@ struct OscEndpoint {
     version: Option<String>,
     alive: bool,
     access_failure_cnt: u8,
-    last_error_code: Option<u16>,
+    last_error: Option<OscEndpointError>,
     error_rate_acc: f32,
     error_rate_cnt: u32,
     error_rate: f32,
+}
+
+#[derive(Clone, Debug)]
+enum OscEndpointError {
+    Code(u16),
+    Transport(String),
+}
+
+impl OscEndpointError {
+    fn from_ureq(ureq_error: ureq::Error) -> OscEndpointError {
+	match ureq_error {
+	    ureq::Error::Status(code, _response) => OscEndpointError::Code(code),
+	    ureq::Error::Transport(transport) => OscEndpointError::Transport(transport.to_string()),
+	}
+    }
 }
 
 impl OscEndpoint {
@@ -169,10 +184,7 @@ impl OscEndpoint {
         self.access_failure_cnt = match self.get_version() {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
             Err(error) => {
-                match error {
-                    ureq::Error::Status(code, _) => self.last_error_code = Some(code),
-                    ureq::Error::Transport(transport) => eprintln!("Transport error: {:?}", transport),
-                };
+		self.last_error = Some(OscEndpointError::from_ureq(error));
                 min(self.access_failure_cnt.saturating_add(1), MAX_HIGH)
             }
         };
@@ -266,7 +278,7 @@ impl Bot {
                         version: None,
                         alive: true,
                         access_failure_cnt: 0,
-                        last_error_code: None,
+                        last_error: None,
                         error_rate_acc: 0.0,
                         error_rate_cnt: 0,
                         error_rate: 0.0,
@@ -348,12 +360,14 @@ impl Bot {
         for endpoint in self.endpoints.iter_mut() {
             print!("checking if {} region is alive: ", endpoint.name);
             match endpoint.update_alive() {
-                (true, false) => {
-		    match endpoint.last_error_code {
-			Some(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
-			err => messages.push(format!("API on {} region is down ({:?})", endpoint.name, err)),
-		    }
-                }
+                (true, false) => match &endpoint.last_error {
+		    Some(error) => match error {
+			OscEndpointError::Code(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
+			OscEndpointError::Code(other) => messages.push(format!("API on {} region is down (error code: {})", endpoint.name, other)),
+			OscEndpointError::Transport(transport) => messages.push(format!("API on {} region seems down (transport error: {})", endpoint.name, transport)),
+		    },
+		    None => messages.push(format!("API on {} region seems down (no reason found)", endpoint.name)),
+		},
                 (false, true) => messages.push(format!("API on {} region is up", endpoint.name)),
                 _ => {}
             };
