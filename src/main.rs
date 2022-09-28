@@ -15,6 +15,8 @@ use std::process::Command;
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
+static API_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Home.html";
+
 fn request_agent() -> ureq::Agent {
     let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
     ureq::AgentBuilder::new().timeout(default_duration).build()
@@ -217,6 +219,7 @@ impl OscEndpoint {
 struct Bot {
     webex_agent: WebexAgent,
     endpoints: Vec<OscEndpoint>,
+    api_page: Option<String>,
     debug: bool,
 }
 
@@ -228,6 +231,7 @@ impl Bot {
             webex_agent: WebexAgent::new(webex_token, webex_room_id),
             endpoints: Bot::load_endpoints(),
             debug: Bot::load_debug(),
+            api_page: None,
         })
     }
 
@@ -450,6 +454,29 @@ impl Bot {
         }
         self.respond(parent, response);
     }
+
+    fn check_api_page_update(&mut self) {
+        let req = match reqwest::blocking::get(API_DOC_URL) {
+            Err(e) => {
+                eprintln!("error: cannot download documentation URL containing API release notes: {}", e);
+                return;
+            },
+            Ok(req) => req,
+        };
+        let body = match req.text() {
+            Err(e) => {
+                eprintln!("error: cannot download documentation URL containing API release notes: {}", e);
+                return;
+            },
+            Ok(body) => body,
+        };
+        if let Some(api_page) = &self.api_page {
+            if api_page.len() != body.len() || *api_page != body {
+                self.say(format!("Documentation front page has changed ({})", API_DOC_URL));
+            }
+        }
+        self.api_page = Some(body);
+    }
 }
 
 fn run_scheduler(bot: Bot) {
@@ -495,6 +522,13 @@ fn run_scheduler(bot: Bot) {
     scheduler.every(Sunday).at("09:00 pm").run(move || {
         if let Ok(bot) = sb.read() {
 	    bot.clean_cloud_accounts();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(600.seconds()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.check_api_page_update();
         }
     });
 

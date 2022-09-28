@@ -9,6 +9,7 @@ It get into a room and speak whenever he wants.
 - speaks when he sees a new Outscale API version on production
 - speaks when a region seems to be down or back on
 - respond to few commands
+- react when documentation page change
 
 ## Commands
 
