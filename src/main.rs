@@ -456,14 +456,15 @@ impl Bot {
     }
 
     fn check_api_page_update(&mut self) {
-        let req = match reqwest::blocking::get(API_DOC_URL) {
+        let agent = request_agent();
+        let req = match agent.get(API_DOC_URL).call() {
+            Ok(req) => req,
             Err(e) => {
                 eprintln!("error: cannot download documentation URL containing API release notes: {}", e);
                 return;
-            },
-            Ok(req) => req,
+            }
         };
-        let body = match req.text() {
+        let body = match req.into_string() {
             Err(e) => {
                 eprintln!("error: cannot download documentation URL containing API release notes: {}", e);
                 return;
