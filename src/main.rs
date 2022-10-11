@@ -11,6 +11,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use ureq;
 use std::process::Command;
+use rand::Rng;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -430,6 +431,8 @@ impl Bot {
                         self.respond_status(&m.id);
                     } else if m.text.contains("emacs") {
                         self.respond(m.id, "You should consider repentance. See https://www.gnu.org/fun/jokes/gospel.html")
+                    } else if m.text.contains("roll") {
+                        self.action_roll(&m);
                     } else {
                         println!("ignoring message");
                     }
@@ -437,6 +440,87 @@ impl Bot {
             }
             Err(e) => eprintln!("error: (reading messages) {}", e),
         };
+    }
+
+    fn respond_failure(&mut self, message: &WebexMessage) {
+        self.respond(message.id.clone(), "I can't do that Dave.");
+    }
+
+    fn action_roll_help(&mut self, message: &WebexMessage) {
+        self.respond(message.id.clone(), "roll <dices> : roll one or more dices where '<dice>' is formated like 1d20.");
+    }
+
+    fn action_roll(&mut self, message: &WebexMessage) {
+        let first_item_after_roll = match message.text.split("roll").skip(1).next() {
+            Some(roll) => roll,
+            None => {
+                self.action_roll_help(&message);
+                return;
+            },
+        };
+        let dices = match first_item_after_roll.split(" ").skip(1).next() {
+            Some(dices) => dices,
+            None => {
+                self.action_roll_help(&message);
+                return;
+            },
+        };
+        println!("{:?}", dices);
+        
+        let mut iter = dices.split("d");
+        let count_str = match iter.next() {
+            Some(count) => count,
+            None => {
+                self.action_roll_help(&message);
+                return;
+            },
+        };
+        let faces_str = match iter.next() {
+            Some(faces) => faces,
+            None => {
+                self.action_roll_help(&message);
+                return;
+            },
+        };
+        let count = match count_str.parse::<usize>() {
+            Ok(c) => c,
+            Err(_) => {
+                self.action_roll_help(&message);
+                return;
+            },
+        };
+        let faces = match faces_str.parse::<usize>() {
+            Ok(f) => f,
+            Err(_) => {
+                self.action_roll_help(&message);
+                return;
+            },
+        };
+        
+        if count <= 0 || count > 1_000 || faces <= 0 || faces > 1000 {
+            self.respond_failure(&message);
+            return;
+        }
+    
+        let mut rng = rand::thread_rng();
+        let mut total = 0;
+        let mut output = format!("roll {}d{}: ", count, faces);
+        if count > 1 && count < 100 {
+            output.push_str("(");
+        }
+        for _ in 0..count {
+            let roll = rng.gen_range(1 .. faces + 1);
+            if count > 1 && count < 100 {
+                output.push_str(format!("{}+", roll).as_str());
+            }
+            total += roll;
+        }
+        if count > 1 && count < 100 {
+            output.pop();
+            output.push_str(") = ");
+        }
+        output.push_str(format!("{}", total).as_str());
+        self.respond(message.id.clone(), &output);
     }
 
     fn respond_status<S: Into<String>>(&self, parent: S) {
