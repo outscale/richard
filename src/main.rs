@@ -425,7 +425,10 @@ impl Bot {
             Ok(messages) => {
                 for m in messages.items {
                     println!("received message: {}", m.text);
-                    if m.text.contains("ping") {
+                    if m.text.contains("help") {
+                        // Do not mention emacs
+                        self.respond(m.id, "available commands are: ping, status, roll, help");
+                    } else if m.text.contains("ping") {
                         self.respond(m.id, "pong");
                     } else if m.text.contains("status") {
                         self.respond_status(&m.id);
