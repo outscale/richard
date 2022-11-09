@@ -16,6 +16,7 @@ const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
 static API_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Home.html";
+static OMI_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
 
 fn request_agent() -> ureq::Agent {
     let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
@@ -220,6 +221,7 @@ struct Bot {
     webex_agent: WebexAgent,
     endpoints: Vec<OscEndpoint>,
     api_page: Option<String>,
+    omi_page: Option<String>,
     debug: bool,
 }
 
@@ -232,6 +234,7 @@ impl Bot {
             endpoints: Bot::load_endpoints(),
             debug: Bot::load_debug(),
             api_page: None,
+            omi_page: None,
         })
     }
 
@@ -533,6 +536,30 @@ impl Bot {
         }
         self.api_page = Some(body);
     }
+
+    fn check_omi_page_update(&mut self) {
+        let agent = request_agent();
+        let req = match agent.get(OMI_DOC_URL).call() {
+            Ok(req) => req,
+            Err(e) => {
+                eprintln!("error: cannot download documentation URL containing OMI details: {}", e);
+                return;
+            }
+        };
+        let body = match req.into_string() {
+            Err(e) => {
+                eprintln!("error: cannot download documentation URL containing OMI details: {}", e);
+                return;
+            },
+            Ok(body) => body,
+        };
+        if let Some(page) = &self.omi_page {
+            if page.len() != body.len() || *page != body {
+                self.say(format!("OMI page page has changed ({})", OMI_DOC_URL));
+            }
+        }
+        self.omi_page = Some(body);
+    }
 }
 
 fn run_scheduler(bot: Bot) {
@@ -578,6 +605,13 @@ fn run_scheduler(bot: Bot) {
     scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.check_api_page_update();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(600.seconds()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.check_omi_page_update();
         }
     });
 
