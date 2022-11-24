@@ -633,22 +633,25 @@ impl Bot {
                                         continue;
                                     }
                                     let release_hash = calculate_hash(&release);
-                                    release_hashs.push(release_hash)
+                                    release_hashs.push(release_hash);
                                 }
                                 self.github.releases.insert(name.to_string(), Some(release_hashs));
                             },
                             Some(Some(previous_releases)) => {
+                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
                                 for release in releases {
                                     if release.is_not_official() {
                                         continue;
                                     }
                                     let release_hash = calculate_hash(&release);
+                                    release_hashs.push(release_hash);
                                     if previous_releases.contains(&release_hash) {
                                         continue;
                                     }
                                     println!("Got release for {} with tag {}", name, release.tag_name);
                                     self.say(release.get_notification_message(&repo), true);
                                 }
+                                self.github.releases.insert(name.to_string(), Some(release_hashs));
                             }
                         }
                     }
