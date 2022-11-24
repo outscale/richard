@@ -27,7 +27,8 @@ Commands are read when Richard is notified in the configured room.
 
 If you need to have a static binary:
 1. Install musl toolchain: `rustup target add x86_64-unknown-linux-musl`
-2. Build with `cargo build --target x86_64-unknown-linux-musl --release`
+2. Install `musl-gcc` (for Debian `apt install musl-tools`)
+3. Build with `cargo build --target x86_64-unknown-linux-musl --release`
 
 # Configure
 
