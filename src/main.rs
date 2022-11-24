@@ -712,7 +712,7 @@ fn run_scheduler(bot: Bot) {
     });
 
     let sb = shared_bot.clone();
-    scheduler.every(1800.seconds()).run(move || {
+    scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.check_github_release();
         }
