@@ -21,7 +21,6 @@ pub struct Github {
 pub struct Repo {
     pub name: String,
     pub full_name: String,
-    html_url: String,
     archived: bool,
     fork: bool,
 }
@@ -135,8 +134,8 @@ impl Github {
 impl Release {
     pub fn get_notification_message(&self, repo: &Repo) -> String {
         format!(
-            "👋 Release de [{}]({}) [{}]({})",
-            repo.name, repo.html_url, self.tag_name, self.html_url
+            "👋 Release de [{} {}]({})",
+            repo.name, self.tag_name, self.html_url
         )
     }
 
