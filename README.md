@@ -27,7 +27,8 @@ Commands are read when Richard is notified in the configured room.
 
 If you need to have a static binary:
 1. Install musl toolchain: `rustup target add x86_64-unknown-linux-musl`
-2. Build with `cargo build --target x86_64-unknown-linux-musl --release`
+2. Install `musl-gcc` (for Debian `apt install musl-tools`)
+3. Build with `cargo build --target x86_64-unknown-linux-musl --release`
 
 # Configure
 
@@ -35,6 +36,7 @@ Parameters are passed through environment variables.
 
 - `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
 - `WEBEX_ROOM_ID`: you can get room id by listing rooms (see below)
+- `GITHUB_TOKEN`: token crafted with "base64(username:pat)". See how to create a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with `public_repo,read:org`
 - `DEBUG`: if set to a non-empty string, this will avoid sending a message on webex.
 
 You can configure many regions (up to 100). Each region has a number starting from 0 to 99:

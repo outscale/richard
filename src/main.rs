@@ -1,22 +1,29 @@
 /* Copyright Outscale SAS */
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
+use github::{Github};
 use rand::seq::IteratorRandom;
+use rand::Rng;
 use serde::Deserialize;
 use std::cmp::min;
-use std::env;
+use std::collections::HashMap;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
+use std::{env};
 use ureq;
-use rand::Rng;
+
+use crate::github::{calculate_hash, ReleaseHash};
+
+mod github;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
 static API_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Home.html";
 static OMI_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
+static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
 
 fn request_agent() -> ureq::Agent {
     let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
@@ -70,6 +77,15 @@ impl WebexAgent {
             .send_json(ureq::json!({
             "roomId": &self.room_id,
             "text": &message.into()
+            }))?;
+        Ok(())
+    }
+
+    fn say_markdown<S: Into<String>>(&self, message: S) -> Result<(), ureq::Error> {
+        self.post("https://webexapis.com/v1/messages")
+            .send_json(ureq::json!({
+            "roomId": &self.room_id,
+            "markdown": &message.into()
             }))?;
         Ok(())
     }
@@ -222,6 +238,7 @@ struct Bot {
     endpoints: Vec<OscEndpoint>,
     api_page: Option<String>,
     omi_page: Option<String>,
+    github: github::Github,
     debug: bool,
 }
 
@@ -229,12 +246,17 @@ impl Bot {
     fn load() -> Option<Self> {
         let webex_token = Bot::load_env("WEBEX_TOKEN", true)?;
         let webex_room_id = Bot::load_env("WEBEX_ROOM_ID", true)?;
+        let github_token = Bot::load_env("GITHUB_TOKEN", true)?;
         Some(Bot {
             webex_agent: WebexAgent::new(webex_token, webex_room_id),
             endpoints: Bot::load_endpoints(),
             debug: Bot::load_debug(),
             api_page: None,
             omi_page: None,
+            github: Github{
+                token: github_token,
+                releases: HashMap::new()
+            },
         })
     }
 
@@ -304,14 +326,20 @@ impl Bot {
         Ok(())
     }
 
-    fn say<S: Into<String>>(&self, message: S) {
+    fn say<S: Into<String>>(&self, message: S, markdown: bool) {
         let message = message.into();
         println!("bot says: {}", message);
         if self.debug {
             return;
         }
-        if let Err(e) = self.webex_agent.say(message) {
-            eprintln!("error: {}", e);
+        if markdown {
+            if let Err(e) = self.webex_agent.say_markdown(message) {
+                eprintln!("error: {}", e);
+            }
+        } else {
+            if let Err(e) = self.webex_agent.say(message) {
+                eprintln!("error: {}", e);
+            }
         }
     }
 
@@ -333,7 +361,7 @@ impl Bot {
 
     fn say_messages(&self, messages: Vec<String>) {
         for message in messages.iter() {
-            self.say(message);
+            self.say(message, false);
         }
     }
 
@@ -387,7 +415,7 @@ impl Bot {
         const RMS_QUOTES: &'static [&'static str] = &include!("rms_quotes.rs");
         let mut rng = rand::thread_rng();
         if let Some(quote) = RMS_QUOTES.iter().choose(&mut rng) {
-            self.say(&quote.to_string());
+            self.say(&quote.to_string(), false);
         }
     }
 
@@ -531,7 +559,7 @@ impl Bot {
         };
         if let Some(api_page) = &self.api_page {
             if api_page.len() != body.len() || *api_page != body {
-                self.say(format!("Documentation front page has changed ({})", API_DOC_URL));
+                self.say(format!("Documentation front page has changed ({})", API_DOC_URL), false);
             }
         }
         self.api_page = Some(body);
@@ -555,10 +583,81 @@ impl Bot {
         };
         if let Some(page) = &self.omi_page {
             if page.len() != body.len() || *page != body {
-                self.say(format!("OMI page page has changed ({})", OMI_DOC_URL));
+                self.say(format!("OMI page page has changed ({})", OMI_DOC_URL), false);
             }
         }
         self.omi_page = Some(body);
+    }
+    fn check_github_release(&mut self) {
+        for org_name in GITHUB_ORG_NAMES {
+            println!("Retrieving all repos from {}", org_name);
+
+            let repos = match self.github.get_all_repos(org_name) {
+                Some(value) => value,
+                None => continue,
+            };
+            for repo in repos {
+                if repo.is_not_maintained() {
+                    continue;
+                }
+                println!("Retrieving latest release for {}/{}", org_name, repo.name);
+                let name = &repo.full_name;
+                let latest_release = self.github.get_latest_release(name);
+
+                match latest_release {
+                    None => {
+                        // Error while retrieving the release
+                        if let Some(_) = self.github.releases.get(name) {
+                            continue;
+                        }
+                        self.github.releases.insert(name.to_string(), None);
+                    },
+                    Some(releases) => {
+                        match self.github.releases.get(name) {
+                            None => {
+                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
+                                for release in releases {
+                                    if release.is_not_official() {
+                                        continue;
+                                    }
+                                    let release_hash = calculate_hash(&release);
+                                    release_hashs.push(release_hash)
+                                    
+                                }
+                                self.github.releases.insert(name.to_string(), Some(release_hashs));
+                            },
+                            Some(None) => {
+                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
+                                for release in releases {
+                                    if release.is_not_official() {
+                                        continue;
+                                    }
+                                    let release_hash = calculate_hash(&release);
+                                    release_hashs.push(release_hash);
+                                }
+                                self.github.releases.insert(name.to_string(), Some(release_hashs));
+                            },
+                            Some(Some(previous_releases)) => {
+                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
+                                for release in releases {
+                                    if release.is_not_official() {
+                                        continue;
+                                    }
+                                    let release_hash = calculate_hash(&release);
+                                    release_hashs.push(release_hash);
+                                    if previous_releases.contains(&release_hash) {
+                                        continue;
+                                    }
+                                    println!("Got release for {} with tag {}", name, release.tag_name);
+                                    self.say(release.get_notification_message(&repo), true);
+                                }
+                                self.github.releases.insert(name.to_string(), Some(release_hashs));
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -612,6 +711,13 @@ fn run_scheduler(bot: Bot) {
     scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.check_omi_page_update();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(600.seconds()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.check_github_release();
         }
     });
 
