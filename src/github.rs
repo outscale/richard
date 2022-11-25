@@ -44,7 +44,7 @@ impl Github {
         loop {
             let req = match agent
                 .get(&url)
-                .set("Authorization", &format!("Basic {}", self.token))
+                .set("Authorization", &format!("token {}", self.token))
                 .set("Accept", "application/vnd.github+json")
                 .query("type", "public")
                 .query("per_page", &DEFAULT_ITEM_PER_PAGE.to_string())
@@ -91,7 +91,7 @@ impl Github {
         loop {
             let req = match agent
                 .get(&url)
-                .set("Authorization", &format!("Basic {}", self.token))
+                .set("Authorization", &format!("token {}", self.token))
                 .set("Accept", "application/vnd.github+json")
                 .query("per_page", &DEFAULT_ITEM_PER_PAGE.to_string())
                 .query("page", &page.to_string())
