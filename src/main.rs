@@ -1,17 +1,17 @@
 /* Copyright Outscale SAS */
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
-use github::{Github};
+use github::Github;
 use rand::seq::IteratorRandom;
 use rand::Rng;
 use serde::Deserialize;
 use std::cmp::min;
 use std::collections::HashMap;
+use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
-use std::{env};
 use ureq;
 
 use crate::github::{calculate_hash, ReleaseHash};
@@ -21,8 +21,8 @@ mod github;
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
-static API_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Home.html";
-static OMI_DOC_URL :&str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
+static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
+static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
 static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
 
 fn request_agent() -> ureq::Agent {
@@ -168,10 +168,10 @@ enum OscEndpointError {
 
 impl OscEndpointError {
     fn from_ureq(ureq_error: ureq::Error) -> OscEndpointError {
-	match ureq_error {
-	    ureq::Error::Status(code, _response) => OscEndpointError::Code(code),
-	    ureq::Error::Transport(transport) => OscEndpointError::Transport(transport.to_string()),
-	}
+        match ureq_error {
+            ureq::Error::Status(code, _response) => OscEndpointError::Code(code),
+            ureq::Error::Transport(transport) => OscEndpointError::Transport(transport.to_string()),
+        }
     }
 }
 
@@ -203,7 +203,7 @@ impl OscEndpoint {
         self.access_failure_cnt = match self.get_version() {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
             Err(error) => {
-		self.last_error = Some(OscEndpointError::from_ureq(error));
+                self.last_error = Some(OscEndpointError::from_ureq(error));
                 min(self.access_failure_cnt.saturating_add(1), MAX_HIGH)
             }
         };
@@ -253,9 +253,9 @@ impl Bot {
             debug: Bot::load_debug(),
             api_page: None,
             omi_page: None,
-            github: Github{
+            github: Github {
                 token: github_token,
-                releases: HashMap::new()
+                releases: HashMap::new(),
             },
         })
     }
@@ -449,7 +449,10 @@ impl Bot {
     }
 
     fn action_roll_help(&mut self, message: &WebexMessage) {
-        self.respond(message.id.clone(), "roll <dices> : roll one or more dices where '<dice>' is formated like 1d20.");
+        self.respond(
+            message.id.clone(),
+            "roll <dices> : roll one or more dices where '<dice>' is formated like 1d20.",
+        );
     }
 
     fn action_roll(&mut self, message: &WebexMessage) {
@@ -458,52 +461,52 @@ impl Bot {
             None => {
                 self.action_roll_help(&message);
                 return;
-            },
+            }
         };
         let dices = match first_item_after_roll.split(" ").skip(1).next() {
             Some(dices) => dices,
             None => {
                 self.action_roll_help(&message);
                 return;
-            },
+            }
         };
         println!("{:?}", dices);
-        
+
         let mut iter = dices.split("d");
         let count_str = match iter.next() {
             Some(count) => count,
             None => {
                 self.action_roll_help(&message);
                 return;
-            },
+            }
         };
         let faces_str = match iter.next() {
             Some(faces) => faces,
             None => {
                 self.action_roll_help(&message);
                 return;
-            },
+            }
         };
         let count = match count_str.parse::<usize>() {
             Ok(c) => c,
             Err(_) => {
                 self.action_roll_help(&message);
                 return;
-            },
+            }
         };
         let faces = match faces_str.parse::<usize>() {
             Ok(f) => f,
             Err(_) => {
                 self.action_roll_help(&message);
                 return;
-            },
+            }
         };
-        
+
         if count <= 0 || count > 1_000 || faces <= 0 || faces > 1000 {
             self.respond_failure(&message);
             return;
         }
-    
+
         let mut rng = rand::thread_rng();
         let mut total = 0;
         let mut output = format!("roll {}d{}: ", count, faces);
@@ -511,7 +514,7 @@ impl Bot {
             output.push_str("(");
         }
         for _ in 0..count {
-            let roll = rng.gen_range(1 .. faces + 1);
+            let roll = rng.gen_range(1..faces + 1);
             if count > 1 && count < 100 {
                 output.push_str(format!("{}+", roll).as_str());
             }
@@ -546,20 +549,29 @@ impl Bot {
         let req = match agent.get(API_DOC_URL).call() {
             Ok(req) => req,
             Err(e) => {
-                eprintln!("error: cannot download documentation URL containing API release notes: {}", e);
+                eprintln!(
+                    "error: cannot download documentation URL containing API release notes: {}",
+                    e
+                );
                 return;
             }
         };
         let body = match req.into_string() {
             Err(e) => {
-                eprintln!("error: cannot download documentation URL containing API release notes: {}", e);
+                eprintln!(
+                    "error: cannot download documentation URL containing API release notes: {}",
+                    e
+                );
                 return;
-            },
+            }
             Ok(body) => body,
         };
         if let Some(api_page) = &self.api_page {
             if api_page.len() != body.len() || *api_page != body {
-                self.say(format!("Documentation front page has changed ({})", API_DOC_URL), false);
+                self.say(
+                    format!("Documentation front page has changed ({})", API_DOC_URL),
+                    false,
+                );
             }
         }
         self.api_page = Some(body);
@@ -570,20 +582,29 @@ impl Bot {
         let req = match agent.get(OMI_DOC_URL).call() {
             Ok(req) => req,
             Err(e) => {
-                eprintln!("error: cannot download documentation URL containing OMI details: {}", e);
+                eprintln!(
+                    "error: cannot download documentation URL containing OMI details: {}",
+                    e
+                );
                 return;
             }
         };
         let body = match req.into_string() {
             Err(e) => {
-                eprintln!("error: cannot download documentation URL containing OMI details: {}", e);
+                eprintln!(
+                    "error: cannot download documentation URL containing OMI details: {}",
+                    e
+                );
                 return;
-            },
+            }
             Ok(body) => body,
         };
         if let Some(page) = &self.omi_page {
             if page.len() != body.len() || *page != body {
-                self.say(format!("OMI page page has changed ({})", OMI_DOC_URL), false);
+                self.say(
+                    format!("OMI page page has changed ({})", OMI_DOC_URL),
+                    false,
+                );
             }
         }
         self.omi_page = Some(body);
@@ -611,50 +632,53 @@ impl Bot {
                             continue;
                         }
                         self.github.releases.insert(name.to_string(), None);
-                    },
-                    Some(releases) => {
-                        match self.github.releases.get(name) {
-                            None => {
-                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
-                                for release in releases {
-                                    if release.is_not_official() {
-                                        continue;
-                                    }
-                                    let release_hash = calculate_hash(&release);
-                                    release_hashs.push(release_hash)
-                                    
-                                }
-                                self.github.releases.insert(name.to_string(), Some(release_hashs));
-                            },
-                            Some(None) => {
-                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
-                                for release in releases {
-                                    if release.is_not_official() {
-                                        continue;
-                                    }
-                                    let release_hash = calculate_hash(&release);
-                                    release_hashs.push(release_hash);
-                                }
-                                self.github.releases.insert(name.to_string(), Some(release_hashs));
-                            },
-                            Some(Some(previous_releases)) => {
-                                let mut release_hashs : Vec<ReleaseHash> = Vec::new();
-                                for release in releases {
-                                    if release.is_not_official() {
-                                        continue;
-                                    }
-                                    let release_hash = calculate_hash(&release);
-                                    release_hashs.push(release_hash);
-                                    if previous_releases.contains(&release_hash) {
-                                        continue;
-                                    }
-                                    println!("Got release for {} with tag {}", name, release.tag_name);
-                                    self.say(release.get_notification_message(&repo), true);
-                                }
-                                self.github.releases.insert(name.to_string(), Some(release_hashs));
-                            }
-                        }
                     }
+                    Some(releases) => match self.github.releases.get(name) {
+                        None => {
+                            let mut release_hashs: Vec<ReleaseHash> = Vec::new();
+                            for release in releases {
+                                if release.is_not_official() {
+                                    continue;
+                                }
+                                let release_hash = calculate_hash(&release);
+                                release_hashs.push(release_hash)
+                            }
+                            self.github
+                                .releases
+                                .insert(name.to_string(), Some(release_hashs));
+                        }
+                        Some(None) => {
+                            let mut release_hashs: Vec<ReleaseHash> = Vec::new();
+                            for release in releases {
+                                if release.is_not_official() {
+                                    continue;
+                                }
+                                let release_hash = calculate_hash(&release);
+                                release_hashs.push(release_hash);
+                            }
+                            self.github
+                                .releases
+                                .insert(name.to_string(), Some(release_hashs));
+                        }
+                        Some(Some(previous_releases)) => {
+                            let mut release_hashs: Vec<ReleaseHash> = Vec::new();
+                            for release in releases {
+                                if release.is_not_official() {
+                                    continue;
+                                }
+                                let release_hash = calculate_hash(&release);
+                                release_hashs.push(release_hash);
+                                if previous_releases.contains(&release_hash) {
+                                    continue;
+                                }
+                                println!("Got release for {} with tag {}", name, release.tag_name);
+                                self.say(release.get_notification_message(&repo), true);
+                            }
+                            self.github
+                                .releases
+                                .insert(name.to_string(), Some(release_hashs));
+                        }
+                    },
                 }
             }
         }
