@@ -12,7 +12,7 @@ use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
-use ureq;
+use std::error::Error;
 
 use crate::github::{calculate_hash, ReleaseHash};
 
@@ -41,7 +41,7 @@ impl WebexAgent {
     fn new(token: String, room_id: String) -> WebexAgent {
         WebexAgent {
             auth_header: format!("Bearer {}", token),
-            room_id: room_id,
+            room_id,
             last_unread_message_date: None,
         }
     }
@@ -49,16 +49,16 @@ impl WebexAgent {
     fn post<T: Into<String>>(&self, url: T) -> ureq::Request {
         let url = url.into();
         let agent = request_agent();
-        return agent.post(&url).set("Authorization", &self.auth_header);
+        agent.post(&url).set("Authorization", &self.auth_header)
     }
 
     fn get<T: Into<String>>(&self, url: T) -> ureq::Request {
         let url = url.into();
         let agent = request_agent();
-        return agent.get(&url).set("Authorization", &self.auth_header);
+        agent.get(&url).set("Authorization", &self.auth_header)
     }
 
-    fn check(&self) -> Result<(), ureq::Error> {
+    fn check(&self) -> Result<(), Box<ureq::Error>> {
         print!("checking Webex API: ");
         let url = format!(
             "https://webexapis.com/v1/rooms/{}/meetingInfo",
@@ -66,13 +66,13 @@ impl WebexAgent {
         );
         if let Err(e) = self.get(&url).call() {
             println!("KO");
-            return Err(e);
+            return Err(Box::new(e));
         }
         println!("OK");
-        return Ok(());
+        Ok(())
     }
 
-    fn say<S: Into<String>>(&self, message: S) -> Result<(), ureq::Error> {
+    fn say<S: Into<String>>(&self, message: S) -> Result<(), Box<ureq::Error>> {
         self.post("https://webexapis.com/v1/messages")
             .send_json(ureq::json!({
             "roomId": &self.room_id,
@@ -81,7 +81,7 @@ impl WebexAgent {
         Ok(())
     }
 
-    fn say_markdown<S: Into<String>>(&self, message: S) -> Result<(), ureq::Error> {
+    fn say_markdown<S: Into<String>>(&self, message: S) -> Result<(), Box<ureq::Error>> {
         self.post("https://webexapis.com/v1/messages")
             .send_json(ureq::json!({
             "roomId": &self.room_id,
@@ -90,7 +90,7 @@ impl WebexAgent {
         Ok(())
     }
 
-    fn respond<P, M>(&self, parent: P, message: M) -> Result<(), ureq::Error>
+    fn respond<P, M>(&self, parent: P, message: M) -> Result<(), Box<ureq::Error>>
     where
         P: Into<String>,
         M: Into<String>,
@@ -104,13 +104,12 @@ impl WebexAgent {
         Ok(())
     }
 
-    fn unread_messages(&mut self) -> Result<WebexMessages, ureq::Error> {
+    fn unread_messages(&mut self) -> Result<WebexMessages, Box<dyn Error>> {
         let url = format!(
             "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
             self.room_id
         );
-        let call = self.get(&url).call()?;
-        let mut res: WebexMessages = call.into_json()?;
+        let mut res: WebexMessages = self.get(&url).call()?.into_json()?;
 
         // Sort messages by date
         res.items.sort_by(|a, b| a.created.cmp(&b.created));
@@ -185,10 +184,10 @@ impl OscEndpoint {
             ret = version.clone();
         }
         self.version = version;
-        return ret;
+        ret
     }
 
-    fn get_version(&self) -> Result<String, ureq::Error> {
+    fn get_version(&self) -> Result<String, Box<dyn Error>> {
         let json: serde_json::Value = request_agent().post(&self.endpoint).call()?.into_json()?;
         Ok(json["Version"].to_string())
     }
@@ -200,7 +199,7 @@ impl OscEndpoint {
         const HIGH: u8 = 6;
         const MAX_HIGH: u8 = 10;
         let alive_old = self.alive;
-        self.access_failure_cnt = match self.get_version() {
+        self.access_failure_cnt = match request_agent().post(&self.endpoint).call() {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
             Err(error) => {
                 self.last_error = Some(OscEndpointError::from_ureq(error));
@@ -225,9 +224,9 @@ impl OscEndpoint {
         self.error_rate = self.error_rate_acc / SIZE;
         self.error_rate_cnt = self.error_rate_cnt.saturating_add(1);
         if self.error_rate_cnt >= SIZE as u32 {
-            return Some(self.error_rate);
+            Some(self.error_rate)
         } else {
-            return None;
+            None
         }
     }
 }
@@ -270,7 +269,7 @@ impl Bot {
                 return None;
             }
         };
-        if value.len() == 0 {
+        if value.is_empty() {
             if verbose {
                 eprintln!("{} seems empty", env_name);
             }
@@ -279,7 +278,7 @@ impl Bot {
         if verbose {
             println!("{} is set", env_name);
         }
-        return Some(value);
+        Some(value)
     }
 
     fn load_debug() -> bool {
@@ -302,8 +301,8 @@ impl Bot {
                 (Some(name), Some(endpoint)) => {
                     print!("{}, ", name);
                     let new = OscEndpoint {
-                        name: name,
-                        endpoint: endpoint,
+                        name,
+                        endpoint,
                         version: None,
                         alive: true,
                         access_failure_cnt: 0,
@@ -317,11 +316,11 @@ impl Bot {
                 _ => break,
             }
         }
-        println!("");
-        return endpoints;
+        println!();
+        endpoints
     }
 
-    fn check(&self) -> Result<(), ureq::Error> {
+    fn check(&self) -> Result<(), Box<ureq::Error>> {
         self.webex_agent.check()?;
         Ok(())
     }
@@ -336,10 +335,8 @@ impl Bot {
             if let Err(e) = self.webex_agent.say_markdown(message) {
                 eprintln!("error: {}", e);
             }
-        } else {
-            if let Err(e) = self.webex_agent.say(message) {
-                eprintln!("error: {}", e);
-            }
+        } else if let Err(e) = self.webex_agent.say(message) {
+            eprintln!("error: {}", e);
         }
     }
 
@@ -412,7 +409,7 @@ impl Bot {
     }
 
     fn hello(&self) {
-        const RMS_QUOTES: &'static [&'static str] = &include!("rms_quotes.rs");
+        const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
         let mut rng = rand::thread_rng();
         if let Some(quote) = RMS_QUOTES.iter().choose(&mut rng) {
             self.say(&quote.to_string(), false);
@@ -456,54 +453,54 @@ impl Bot {
     }
 
     fn action_roll(&mut self, message: &WebexMessage) {
-        let first_item_after_roll = match message.text.split("roll").skip(1).next() {
+        let first_item_after_roll = match message.text.split("roll").nth(1) {
             Some(roll) => roll,
             None => {
-                self.action_roll_help(&message);
+                self.action_roll_help(message);
                 return;
             }
         };
-        let dices = match first_item_after_roll.split(" ").skip(1).next() {
+        let dices = match first_item_after_roll.split(' ').nth(1) {
             Some(dices) => dices,
             None => {
-                self.action_roll_help(&message);
+                self.action_roll_help(message);
                 return;
             }
         };
         println!("{:?}", dices);
 
-        let mut iter = dices.split("d");
+        let mut iter = dices.split('d');
         let count_str = match iter.next() {
             Some(count) => count,
             None => {
-                self.action_roll_help(&message);
+                self.action_roll_help(message);
                 return;
             }
         };
         let faces_str = match iter.next() {
             Some(faces) => faces,
             None => {
-                self.action_roll_help(&message);
+                self.action_roll_help(message);
                 return;
             }
         };
         let count = match count_str.parse::<usize>() {
             Ok(c) => c,
             Err(_) => {
-                self.action_roll_help(&message);
+                self.action_roll_help(message);
                 return;
             }
         };
         let faces = match faces_str.parse::<usize>() {
             Ok(f) => f,
             Err(_) => {
-                self.action_roll_help(&message);
+                self.action_roll_help(message);
                 return;
             }
         };
 
-        if count <= 0 || count > 1_000 || faces <= 0 || faces > 1000 {
-            self.respond_failure(&message);
+        if count == 0 || count > 1_000 || faces == 0 || faces > 1000 {
+            self.respond_failure(message);
             return;
         }
 
@@ -511,7 +508,7 @@ impl Bot {
         let mut total = 0;
         let mut output = format!("roll {}d{}: ", count, faces);
         if count > 1 && count < 100 {
-            output.push_str("(");
+            output.push('(');
         }
         for _ in 0..count {
             let roll = rng.gen_range(1..faces + 1);
@@ -609,6 +606,7 @@ impl Bot {
         }
         self.omi_page = Some(body);
     }
+
     fn check_github_release(&mut self) {
         for org_name in GITHUB_ORG_NAMES {
             println!("Retrieving all repos from {}", org_name);
@@ -626,7 +624,7 @@ impl Bot {
                 match self.github.get_releases(name) {
                     None => {
                         // Error while retrieving the release
-                        if let Some(_) = self.github.releases.get(name) {
+                        if self.github.releases.get(name).is_some() {
                             continue;
                         }
                         self.github.releases.insert(name.to_string(), None);
@@ -736,7 +734,7 @@ fn run_scheduler(bot: Bot) {
         }
     });
 
-    let sb = shared_bot.clone();
+    let sb = shared_bot;
     scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.check_github_release();

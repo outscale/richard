@@ -25,7 +25,7 @@ pub struct Repo {
     fork: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Hash)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
 pub struct Release {
     html_url: String,
     pub tag_name: String,
@@ -76,7 +76,7 @@ impl Github {
                 break;
             }
 
-            page = page + 1;
+            page += 1;
         }
 
         Some(results)
@@ -125,7 +125,7 @@ impl Github {
                 break;
             }
 
-            page = page + 1;
+            page += 1;
         }
         Some(results)
     }
