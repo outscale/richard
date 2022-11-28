@@ -82,7 +82,7 @@ impl Github {
         Some(results)
     }
 
-    pub fn get_latest_release(&self, repo_name: &str) -> Option<Vec<Release>> {
+    pub fn get_releases(&self, repo_name: &str) -> Option<Vec<Release>> {
         let agent = request_agent();
         let url = format!("https://api.github.com/repos/{}/releases", repo_name);
         let mut page = 1;
@@ -106,7 +106,7 @@ impl Github {
                 }
             };
 
-            let mut json: Vec<Release> = match req.into_json() {
+            let mut releases: Vec<Release> = match req.into_json() {
                 Err(e) => {
                     eprintln!(
                         "error: cannot deserializing latest release for {}: {}",
@@ -117,9 +117,9 @@ impl Github {
                 Ok(body) => body,
             };
 
-            let size = json.len();
+            let size = releases.len();
 
-            results.append(&mut json);
+            results.append(&mut releases);
 
             if size < DEFAULT_ITEM_PER_PAGE {
                 break;

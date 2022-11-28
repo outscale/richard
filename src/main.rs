@@ -623,9 +623,7 @@ impl Bot {
                 }
                 println!("Retrieving latest release for {}/{}", org_name, repo.name);
                 let name = &repo.full_name;
-                let latest_release = self.github.get_latest_release(name);
-
-                match latest_release {
+                match self.github.get_releases(name) {
                     None => {
                         // Error while retrieving the release
                         if let Some(_) = self.github.releases.get(name) {
