@@ -43,6 +43,10 @@ You can configure many regions (up to 100). Each region has a number starting fr
 - `REGION_0_NAME`: friendly name for this region (e.g. "eu-west-2")
 - `REGION_0_ENDPOINT`: whole endpoint URL (e.g. "https://api.eu-west-2.outscale.com/api/v1/")
 
+You can configure many news feed (up to 100). Each feed has a number starting from 0 to 99:
+- `FEED_0_NAME`: friendly name for this feed (e.g. "The Hacker News")
+- `FEED_0_URL`: Atom, RSS or JSON feed URL (e.g. "https://feeds.feedburner.com/TheHackersNews")
+
 As a facility, you can:
 1. copy `config.env.ori` to `config.env`
 2. edit `config.env`

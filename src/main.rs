@@ -1,4 +1,5 @@
 /* Copyright Outscale SAS */
+use crate::github::{calculate_hash, ReleaseHash};
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
 use github::Github;
@@ -8,15 +9,15 @@ use serde::Deserialize;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::env;
+use std::error::Error;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
-use std::error::Error;
 
-use crate::github::{calculate_hash, ReleaseHash};
-
+mod feed;
 mod github;
+use feed::Feed;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -238,6 +239,7 @@ struct Bot {
     api_page: Option<String>,
     omi_page: Option<String>,
     github: github::Github,
+    feeds: Vec<Feed>,
     debug: bool,
 }
 
@@ -256,6 +258,7 @@ impl Bot {
                 token: github_token,
                 releases: HashMap::new(),
             },
+            feeds: Bot::load_feeds(),
         })
     }
 
@@ -318,6 +321,23 @@ impl Bot {
         }
         println!();
         endpoints
+    }
+
+    fn load_feeds() -> Vec<Feed> {
+        let mut feeds = Vec::new();
+        for i in 0..100 {
+            let name = Bot::load_env(&format!("FEED_{}_NAME", i), false);
+            let url = Bot::load_env(&format!("FEED_{}_URL", i), false);
+            match (name, url) {
+                (Some(name), Some(url)) => {
+                    println!("- {} ({}), ", name, url);
+                    feeds.push(Feed::new(name, url));
+                }
+                _ => break,
+            }
+        }
+        println!("{} feeds configured", feeds.len());
+        feeds
     }
 
     fn check(&self) -> Result<(), Box<ureq::Error>> {
@@ -679,6 +699,25 @@ impl Bot {
             }
         }
     }
+
+    fn check_feeds(&mut self) {
+        println!("Checking feeds");
+        let mut messages: Vec<String> = Vec::new();
+        for feed in &mut self.feeds {
+            if feed.update() {
+                if let Some(announce) = feed.announce() {
+                    messages.push(announce);
+                }
+            }
+        }
+        if messages.is_empty() {
+            println!("no new feed entry");
+            return;
+        }
+        for msg in messages {
+            self.say(msg, true);
+        }
+    }
 }
 
 fn run_scheduler(bot: Bot) {
@@ -731,6 +770,13 @@ fn run_scheduler(bot: Bot) {
     scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
             bot.check_omi_page_update();
+        }
+    });
+
+    let sb = shared_bot.clone();
+    scheduler.every(3600.seconds()).run(move || {
+        if let Ok(mut bot) = sb.write() {
+            bot.check_feeds();
         }
     });
 
