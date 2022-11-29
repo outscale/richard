@@ -3,7 +3,7 @@ use crate::github::{calculate_hash, ReleaseHash};
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
 use github::Github;
-use log::{error, info, warn, debug};
+use log::{error, info, warn, debug, trace};
 use rand::seq::IteratorRandom;
 use rand::Rng;
 use serde::Deserialize;
@@ -379,10 +379,11 @@ impl Bot {
                 (false, true) => messages.push(format!("API on {} region is up", endpoint.name)),
                 _ => {}
             };
-            info!(
-                "checking if {} region is alive: {}",
-                endpoint.name, endpoint.alive
-            );
+            if endpoint.alive {
+                trace!("API of {} region is alive", endpoint.name);
+            } else {
+                warn!("API of {} region is not alive", endpoint.name);
+            }
         }
         self.say_messages(messages);
     }
