@@ -3,6 +3,7 @@ use crate::github::{calculate_hash, ReleaseHash};
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
 use github::Github;
+use log::{error, info, warn, debug};
 use rand::seq::IteratorRandom;
 use rand::Rng;
 use serde::Deserialize;
@@ -60,16 +61,15 @@ impl WebexAgent {
     }
 
     fn check(&self) -> Result<(), Box<ureq::Error>> {
-        print!("checking Webex API: ");
         let url = format!(
             "https://webexapis.com/v1/rooms/{}/meetingInfo",
             self.room_id
         );
         if let Err(e) = self.get(&url).call() {
-            println!("KO");
+            info!("checking Webex API: KO");
             return Err(Box::new(e));
         }
-        println!("OK");
+        info!("checking Webex API: OK");
         Ok(())
     }
 
@@ -240,18 +240,16 @@ struct Bot {
     omi_page: Option<String>,
     github: github::Github,
     feeds: Vec<Feed>,
-    debug: bool,
 }
 
 impl Bot {
     fn load() -> Option<Self> {
-        let webex_token = Bot::load_env("WEBEX_TOKEN", true)?;
-        let webex_room_id = Bot::load_env("WEBEX_ROOM_ID", true)?;
-        let github_token = Bot::load_env("GITHUB_TOKEN", true)?;
+        let webex_token = load_env("WEBEX_TOKEN")?;
+        let webex_room_id = load_env("WEBEX_ROOM_ID")?;
+        let github_token = load_env("GITHUB_TOKEN")?;
         Some(Bot {
             webex_agent: WebexAgent::new(webex_token, webex_room_id),
             endpoints: Bot::load_endpoints(),
-            debug: Bot::load_debug(),
             api_page: None,
             omi_page: None,
             github: Github {
@@ -262,47 +260,14 @@ impl Bot {
         })
     }
 
-    fn load_env(env_name: &str, verbose: bool) -> Option<String> {
-        let value = match env::var(env_name) {
-            Ok(v) => v,
-            Err(e) => {
-                if verbose {
-                    eprintln!("{}: {}", env_name, e);
-                }
-                return None;
-            }
-        };
-        if value.is_empty() {
-            if verbose {
-                eprintln!("{} seems empty", env_name);
-            }
-            return None;
-        }
-        if verbose {
-            println!("{} is set", env_name);
-        }
-        Some(value)
-    }
-
-    fn load_debug() -> bool {
-        match Bot::load_env("DEBUG", false) {
-            Some(_) => {
-                println!("DEBUG is set");
-                true
-            }
-            None => false,
-        }
-    }
-
     fn load_endpoints() -> Vec<OscEndpoint> {
         let mut endpoints = Vec::new();
-        print!("regions configured: ");
         for i in 0..100 {
-            let name = Bot::load_env(&format!("REGION_{}_NAME", i), false);
-            let endpoint = Bot::load_env(&format!("REGION_{}_ENDPOINT", i), false);
+            let name = load_env(&format!("REGION_{}_NAME", i));
+            let endpoint = load_env(&format!("REGION_{}_ENDPOINT", i));
             match (name, endpoint) {
                 (Some(name), Some(endpoint)) => {
-                    print!("{}, ", name);
+                    info!("endpoint {} configured", name);
                     let new = OscEndpoint {
                         name,
                         endpoint,
@@ -319,24 +284,22 @@ impl Bot {
                 _ => break,
             }
         }
-        println!();
         endpoints
     }
 
     fn load_feeds() -> Vec<Feed> {
         let mut feeds = Vec::new();
         for i in 0..100 {
-            let name = Bot::load_env(&format!("FEED_{}_NAME", i), false);
-            let url = Bot::load_env(&format!("FEED_{}_URL", i), false);
+            let name = load_env(&format!("FEED_{}_NAME", i));
+            let url = load_env(&format!("FEED_{}_URL", i));
             match (name, url) {
                 (Some(name), Some(url)) => {
-                    println!("- {} ({}), ", name, url);
+                    info!("feed configured: {} ({}), ", name, url);
                     feeds.push(Feed::new(name, url));
                 }
                 _ => break,
             }
         }
-        println!("{} feeds configured", feeds.len());
         feeds
     }
 
@@ -347,16 +310,13 @@ impl Bot {
 
     fn say<S: Into<String>>(&self, message: S, markdown: bool) {
         let message = message.into();
-        println!("bot says: {}", message);
-        if self.debug {
-            return;
-        }
+        info!("bot says: {}", message);
         if markdown {
             if let Err(e) = self.webex_agent.say_markdown(message) {
-                eprintln!("error: {}", e);
+                error!("{}", e);
             }
         } else if let Err(e) = self.webex_agent.say(message) {
-            eprintln!("error: {}", e);
+            error!("{}", e);
         }
     }
 
@@ -367,12 +327,9 @@ impl Bot {
     {
         let parent = parent.into();
         let message = message.into();
-        println!("bot respond: {}", message);
-        if self.debug {
-            return;
-        }
+        info!("bot respond: {}", message);
         if let Err(e) = self.webex_agent.respond(parent, message) {
-            eprintln!("error: {}", e);
+            error!("{}", e);
         }
     }
 
@@ -385,7 +342,7 @@ impl Bot {
     fn endpoint_version_update(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
-            println!("updating {}", endpoint.name);
+            info!("updating {}", endpoint.name);
             if let Some(v) = endpoint.update_version() {
                 messages.push(format!("New API version on {}: {}", endpoint.name, v));
             }
@@ -397,7 +354,7 @@ impl Bot {
         for endpoint in self.endpoints.iter_mut() {
             if let Some(error_rate) = endpoint.update_error_rate() {
                 if error_rate > HIGH_ERROR_RATE {
-                    println!(
+                    warn!(
                         "high error rate on {}: {:?}%",
                         endpoint.name,
                         (error_rate * 100.0) as u32
@@ -410,7 +367,6 @@ impl Bot {
     fn api_online_check(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
-            print!("checking if {} region is alive: ", endpoint.name);
             match endpoint.update_alive() {
                 (true, false) => match &endpoint.last_error {
 		    Some(error) => match error {
@@ -423,7 +379,10 @@ impl Bot {
                 (false, true) => messages.push(format!("API on {} region is up", endpoint.name)),
                 _ => {}
             };
-            println!("{}", endpoint.alive);
+            info!(
+                "checking if {} region is alive: {}",
+                endpoint.name, endpoint.alive
+            );
         }
         self.say_messages(messages);
     }
@@ -440,7 +399,7 @@ impl Bot {
         match self.webex_agent.unread_messages() {
             Ok(messages) => {
                 for m in messages.items {
-                    println!("received message: {}", m.text);
+                    info!("received message: {}", m.text);
                     if m.text.contains("help") {
                         // Do not mention emacs
                         self.respond(m.id, "available commands are: ping, status, roll, help");
@@ -453,11 +412,11 @@ impl Bot {
                     } else if m.text.contains("roll") {
                         self.action_roll(&m);
                     } else {
-                        println!("ignoring message");
+                        info!("ignoring message");
                     }
                 }
             }
-            Err(e) => eprintln!("error: (reading messages) {}", e),
+            Err(e) => error!("reading messages {}", e),
         };
     }
 
@@ -487,7 +446,7 @@ impl Bot {
                 return;
             }
         };
-        println!("{:?}", dices);
+        info!("dices: {}", dices);
 
         let mut iter = dices.split('d');
         let count_str = match iter.next() {
@@ -566,8 +525,8 @@ impl Bot {
         let req = match agent.get(API_DOC_URL).call() {
             Ok(req) => req,
             Err(e) => {
-                eprintln!(
-                    "error: cannot download documentation URL containing API release notes: {}",
+                error!(
+                    "cannot download documentation URL containing API release notes: {}",
                     e
                 );
                 return;
@@ -575,7 +534,7 @@ impl Bot {
         };
         let body = match req.into_string() {
             Err(e) => {
-                eprintln!(
+                error!(
                     "error: cannot download documentation URL containing API release notes: {}",
                     e
                 );
@@ -599,7 +558,7 @@ impl Bot {
         let req = match agent.get(OMI_DOC_URL).call() {
             Ok(req) => req,
             Err(e) => {
-                eprintln!(
+                error!(
                     "error: cannot download documentation URL containing OMI details: {}",
                     e
                 );
@@ -608,7 +567,7 @@ impl Bot {
         };
         let body = match req.into_string() {
             Err(e) => {
-                eprintln!(
+                error!(
                     "error: cannot download documentation URL containing OMI details: {}",
                     e
                 );
@@ -629,7 +588,7 @@ impl Bot {
 
     fn check_github_release(&mut self) {
         for org_name in GITHUB_ORG_NAMES {
-            println!("Retrieving all repos from {}", org_name);
+            info!("retrieving all repos from {}", org_name);
 
             let repos = match self.github.get_all_repos(org_name) {
                 Some(value) => value,
@@ -639,7 +598,7 @@ impl Bot {
                 if repo.is_not_maintained() {
                     continue;
                 }
-                println!("Retrieving latest release for {}/{}", org_name, repo.name);
+                info!("retrieving latest release for {}/{}", org_name, repo.name);
                 let name = &repo.full_name;
                 match self.github.get_releases(name) {
                     None => {
@@ -687,7 +646,7 @@ impl Bot {
                                 if previous_releases.contains(&release_hash) {
                                     continue;
                                 }
-                                println!("Got release for {} with tag {}", name, release.tag_name);
+                                info!("got release for {} with tag {}", name, release.tag_name);
                                 self.say(release.get_notification_message(&repo), true);
                             }
                             self.github
@@ -701,7 +660,6 @@ impl Bot {
     }
 
     fn check_feeds(&mut self) {
-        println!("Checking feeds");
         let mut messages: Vec<String> = Vec::new();
         for feed in &mut self.feeds {
             if feed.update() {
@@ -711,8 +669,10 @@ impl Bot {
             }
         }
         if messages.is_empty() {
-            println!("no new feed entry");
+            info!("no new feed entry");
             return;
+        } else {
+            info!("we have {} new feed entries", messages.len());
         }
         for msg in messages {
             self.say(msg, true);
@@ -793,17 +753,34 @@ fn run_scheduler(bot: Bot) {
     }
 }
 
+fn load_env(env_name: &str) -> Option<String> {
+    let value = match env::var(env_name) {
+        Ok(v) => v,
+        Err(e) => {
+            debug!("{}: {}", env_name, e);
+            return None;
+        }
+    };
+    if value.is_empty() {
+        debug!("{} seems empty", env_name);
+        return None;
+    }
+    debug!("{} is set", env_name);
+    Some(value)
+}
+
 fn main() {
+    env_logger::init();
     let bot = match Bot::load() {
         Some(b) => b,
         None => {
-            eprintln!("bot requirements are not met. exiting.");
+            error!("bot requirements are not met. exiting.");
             exit(1);
         }
     };
 
     if let Err(e) = bot.check() {
-        eprintln!("error: {}", e);
+        error!("error: {}", e);
         exit(1);
     }
     run_scheduler(bot);

@@ -3,6 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use log::error;
 use serde::Deserialize;
 
 use crate::request_agent;
@@ -52,17 +53,14 @@ impl Github {
             {
                 Ok(req) => req,
                 Err(e) => {
-                    eprintln!("error: cannot listing all repo for {}: {}", org_name, e);
+                    error!("error: cannot listing all repo for {}: {}", org_name, e);
                     return None;
                 }
             };
 
             let mut json: Vec<Repo> = match req.into_json() {
                 Err(e) => {
-                    eprintln!(
-                        "error: cannot deserializing all repo for {}: {}",
-                        org_name, e
-                    );
+                    error!("cannot deserializing all repo for {}: {}", org_name, e);
                     return None;
                 }
                 Ok(body) => body,
@@ -98,18 +96,15 @@ impl Github {
             {
                 Ok(req) => req,
                 Err(e) => {
-                    eprintln!(
-                        "error: cannot retrieve latest release for {}: {}",
-                        repo_name, e
-                    );
+                    error!("cannot retrieve latest release for {}: {}", repo_name, e);
                     return None;
                 }
             };
 
             let mut releases: Vec<Release> = match req.into_json() {
                 Err(e) => {
-                    eprintln!(
-                        "error: cannot deserializing latest release for {}: {}",
+                    error!(
+                        "cannot deserializing latest release for {}: {}",
                         repo_name, e
                     );
                     return None;

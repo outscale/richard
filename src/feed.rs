@@ -1,6 +1,7 @@
 use crate::request_agent;
 use feed_rs::model;
 use feed_rs::parser::parse;
+use log::info;
 use std::cmp::Ordering;
 use std::error::Error;
 
@@ -35,7 +36,7 @@ impl Feed {
     }
 
     fn download(&self) -> Result<model::Feed, Box<dyn Error>> {
-        println!("downloading feeds for {}", self.name);
+        info!("downloading feeds for {}", self.name);
         let response = match request_agent().get(&self.url).call() {
             Ok(resp) => resp,
             Err(err) => {

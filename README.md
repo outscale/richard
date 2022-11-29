@@ -37,7 +37,7 @@ Parameters are passed through environment variables.
 - `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
 - `WEBEX_ROOM_ID`: you can get room id by listing rooms (see below)
 - `GITHUB_TOKEN`: Your Personal Access Token (PAT). See how to create a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with `public_repo,read:org`
-- `DEBUG`: if set to a non-empty string, this will avoid sending a message on webex.
+- `RUST_LOG`: log level to use. example: `RUST_LOG=debug`. More details on [env_logger](https://docs.rs/env_logger/latest/env_logger/).
 
 You can configure many regions (up to 100). Each region has a number starting from 0 to 99:
 - `REGION_0_NAME`: friendly name for this region (e.g. "eu-west-2")
