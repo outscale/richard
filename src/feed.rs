@@ -69,10 +69,10 @@ impl Feed {
         let title = entry.title.map(|title| title.content);
         let url = entry.links.first().map(|link| link.href.clone());
         Some(match (title, url) {
-            (None, None) => format!("New post on [{}]({})", self.name, self.url),
+            (None, None) => format!("New post on {}", self.name),
             (None, Some(url)) => format!("New post on [{}]({})", self.name, url),
-            (Some(title), None) => format!("New post on [{}]({}): {}", self.name, self.url, title),
-            (Some(title), Some(url)) => format!("New post on {}: [{}]({})", self.name, title, url),
+            (Some(title), None) => format!("New post on {}: {}", self.name, title),
+            (Some(title), Some(url)) => format!("{}: [{}]({})", self.name, title, url),
         })
     }
 }
