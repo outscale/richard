@@ -3,11 +3,10 @@ use crate::github::{calculate_hash, ReleaseHash};
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
 use github::Github;
-use log::{error, info, warn, debug, trace};
+use log::{debug, error, info, trace, warn};
 use rand::seq::IteratorRandom;
 use rand::Rng;
 use serde::Deserialize;
-use std::cmp::min;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -18,6 +17,7 @@ use std::time::Duration;
 
 mod feed;
 mod github;
+mod osc;
 use feed::Feed;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
@@ -148,94 +148,9 @@ struct WebexMessage {
 }
 
 #[derive(Clone)]
-struct OscEndpoint {
-    name: String,
-    endpoint: String,
-    version: Option<String>,
-    alive: bool,
-    access_failure_cnt: u8,
-    last_error: Option<OscEndpointError>,
-    error_rate_acc: f32,
-    error_rate_cnt: u32,
-    error_rate: f32,
-}
-
-#[derive(Clone, Debug)]
-enum OscEndpointError {
-    Code(u16),
-    Transport(String),
-}
-
-impl OscEndpointError {
-    fn from_ureq(ureq_error: ureq::Error) -> OscEndpointError {
-        match ureq_error {
-            ureq::Error::Status(code, _response) => OscEndpointError::Code(code),
-            ureq::Error::Transport(transport) => OscEndpointError::Transport(transport.to_string()),
-        }
-    }
-}
-
-impl OscEndpoint {
-    // return new version if updated
-    // return None on first update
-    fn update_version(&mut self) -> Option<String> {
-        let version = Some(self.get_version().ok()?);
-        let mut ret = None;
-        if self.version.is_some() && version != self.version {
-            ret = version.clone();
-        }
-        self.version = version;
-        ret
-    }
-
-    fn get_version(&self) -> Result<String, Box<dyn Error>> {
-        let json: serde_json::Value = request_agent().post(&self.endpoint).call()?.into_json()?;
-        Ok(json["Version"].to_string())
-    }
-
-    fn update_alive(&mut self) -> (bool, bool) {
-        // Schmitt Trigger based on the number of errors
-        // https://en.wikipedia.org/wiki/Schmitt_trigger
-        const LOW: u8 = 3;
-        const HIGH: u8 = 6;
-        const MAX_HIGH: u8 = 10;
-        let alive_old = self.alive;
-        self.access_failure_cnt = match request_agent().post(&self.endpoint).call() {
-            Ok(_) => self.access_failure_cnt.saturating_sub(1),
-            Err(error) => {
-                self.last_error = Some(OscEndpointError::from_ureq(error));
-                min(self.access_failure_cnt.saturating_add(1), MAX_HIGH)
-            }
-        };
-        self.alive = match (self.alive, self.access_failure_cnt) {
-            (true, HIGH) => false,
-            (false, LOW) => true,
-            _ => self.alive,
-        };
-        (alive_old, self.alive)
-    }
-
-    fn update_error_rate(&mut self) -> Option<f32> {
-        // A simple sliding mean, only providing value once sliding window is full.
-        const SIZE: f32 = 100.0;
-        self.error_rate_acc = match self.get_version() {
-            Ok(_) => self.error_rate_acc + 0.0 - self.error_rate,
-            Err(_) => self.error_rate_acc + 1.0 - self.error_rate,
-        };
-        self.error_rate = self.error_rate_acc / SIZE;
-        self.error_rate_cnt = self.error_rate_cnt.saturating_add(1);
-        if self.error_rate_cnt >= SIZE as u32 {
-            Some(self.error_rate)
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Clone)]
 struct Bot {
     webex_agent: WebexAgent,
-    endpoints: Vec<OscEndpoint>,
+    endpoints: Vec<osc::Endpoint>,
     api_page: Option<String>,
     omi_page: Option<String>,
     github: github::Github,
@@ -260,7 +175,7 @@ impl Bot {
         })
     }
 
-    fn load_endpoints() -> Vec<OscEndpoint> {
+    fn load_endpoints() -> Vec<osc::Endpoint> {
         let mut endpoints = Vec::new();
         for i in 0..100 {
             let name = load_env(&format!("REGION_{}_NAME", i));
@@ -268,17 +183,7 @@ impl Bot {
             match (name, endpoint) {
                 (Some(name), Some(endpoint)) => {
                     info!("endpoint {} configured", name);
-                    let new = OscEndpoint {
-                        name,
-                        endpoint,
-                        version: None,
-                        alive: true,
-                        access_failure_cnt: 0,
-                        last_error: None,
-                        error_rate_acc: 0.0,
-                        error_rate_cnt: 0,
-                        error_rate: 0.0,
-                    };
+                    let new = osc::Endpoint::new(name, endpoint);
                     endpoints.push(new);
                 }
                 _ => break,
@@ -370,9 +275,9 @@ impl Bot {
             match endpoint.update_alive() {
                 (true, false) => match &endpoint.last_error {
 		    Some(error) => match error {
-			OscEndpointError::Code(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
-			OscEndpointError::Code(other) => messages.push(format!("API on {} region is down (error code: {})", endpoint.name, other)),
-			OscEndpointError::Transport(transport) => messages.push(format!("API on {} region seems down (transport error: {})", endpoint.name, transport)),
+			osc::EndpointError::Code(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
+			osc::EndpointError::Code(other) => messages.push(format!("API on {} region is down (error code: {})", endpoint.name, other)),
+			osc::EndpointError::Transport(transport) => messages.push(format!("API on {} region seems down (transport error: {})", endpoint.name, transport)),
 		    },
 		    None => messages.push(format!("API on {} region seems down (no reason found)", endpoint.name)),
 		},
