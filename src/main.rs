@@ -599,7 +599,7 @@ impl Bot {
                 if repo.is_not_maintained() {
                     continue;
                 }
-                info!("retrieving latest release for {}/{}", org_name, repo.name);
+                trace!("retrieving latest release for {}/{}", org_name, repo.name);
                 let name = &repo.full_name;
                 match self.github.get_releases(name) {
                     None => {
