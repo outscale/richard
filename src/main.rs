@@ -5,7 +5,6 @@ use clokwerk::{Scheduler, TimeUnits};
 use github::Github;
 use log::{debug, error, info, trace, warn};
 use rand::seq::IteratorRandom;
-use rand::Rng;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
@@ -18,6 +17,7 @@ use std::time::Duration;
 mod feed;
 mod github;
 mod osc;
+mod roll;
 use feed::Feed;
 
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
@@ -272,22 +272,8 @@ impl Bot {
     fn api_online_check(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
-            match endpoint.update_alive() {
-                (true, false) => match &endpoint.last_error {
-		    Some(error) => match error {
-			osc::EndpointError::Code(503) => messages.push(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", endpoint.name)),
-			osc::EndpointError::Code(other) => messages.push(format!("API on {} region is down (error code: {})", endpoint.name, other)),
-			osc::EndpointError::Transport(transport) => messages.push(format!("API on {} region seems down (transport error: {})", endpoint.name, transport)),
-		    },
-		    None => messages.push(format!("API on {} region seems down (no reason found)", endpoint.name)),
-		},
-                (false, true) => messages.push(format!("API on {} region is up", endpoint.name)),
-                _ => {}
-            };
-            if endpoint.alive {
-                trace!("API of {} region is alive", endpoint.name);
-            } else {
-                warn!("API of {} region is not alive", endpoint.name);
+            if let Some(response) = endpoint.alive() {
+                messages.push(response);
             }
         }
         self.say_messages(messages);
@@ -326,88 +312,12 @@ impl Bot {
         };
     }
 
-    fn respond_failure(&mut self, message: &WebexMessage) {
-        self.respond(message.id.clone(), "I can't do that Dave.");
-    }
-
-    fn action_roll_help(&mut self, message: &WebexMessage) {
-        self.respond(
-            message.id.clone(),
-            "roll <dices> : roll one or more dices where '<dice>' is formated like 1d20.",
-        );
-    }
-
     fn action_roll(&mut self, message: &WebexMessage) {
-        let first_item_after_roll = match message.text.split("roll").nth(1) {
-            Some(roll) => roll,
-            None => {
-                self.action_roll_help(message);
-                return;
-            }
-        };
-        let dices = match first_item_after_roll.split(' ').nth(1) {
-            Some(dices) => dices,
-            None => {
-                self.action_roll_help(message);
-                return;
-            }
-        };
-        info!("dices: {}", dices);
-
-        let mut iter = dices.split('d');
-        let count_str = match iter.next() {
-            Some(count) => count,
-            None => {
-                self.action_roll_help(message);
-                return;
-            }
-        };
-        let faces_str = match iter.next() {
-            Some(faces) => faces,
-            None => {
-                self.action_roll_help(message);
-                return;
-            }
-        };
-        let count = match count_str.parse::<usize>() {
-            Ok(c) => c,
-            Err(_) => {
-                self.action_roll_help(message);
-                return;
-            }
-        };
-        let faces = match faces_str.parse::<usize>() {
-            Ok(f) => f,
-            Err(_) => {
-                self.action_roll_help(message);
-                return;
-            }
-        };
-
-        if count == 0 || count > 1_000 || faces == 0 || faces > 1000 {
-            self.respond_failure(message);
+        let Some(response) = roll::gen(&message.text) else {
+            self.respond(message.id.clone(), roll::help());
             return;
-        }
-
-        let mut rng = rand::thread_rng();
-        let mut total = 0;
-        let mut output = format!("roll {}d{}: ", count, faces);
-        if count > 1 && count < 100 {
-            output.push('(');
-        }
-        for _ in 0..count {
-            let roll = rng.gen_range(1..faces + 1);
-            if count > 1 && count < 100 {
-                output.push_str(format!("{}+", roll).as_str());
-            }
-            total += roll;
-        }
-        if count > 1 && count < 100 {
-            output.pop();
-            output.push_str(") = ");
-        }
-        output.push_str(format!("{}", total).as_str());
-        self.respond(message.id.clone(), &output);
+        };
+        self.respond(message.id.clone(), &response);
     }
 
     fn respond_status<S: Into<String>>(&self, parent: S) {

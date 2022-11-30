@@ -1,6 +1,7 @@
 use crate::request_agent;
 use std::cmp::min;
 use std::error::Error;
+use log::{warn, trace};
 
 #[derive(Clone)]
 pub struct Endpoint {
@@ -62,7 +63,7 @@ impl Endpoint {
         Ok(json["Version"].to_string())
     }
 
-    pub fn update_alive(&mut self) -> (bool, bool) {
+    fn update_alive(&mut self) -> (bool, bool) {
         // Schmitt Trigger based on the number of errors
         // https://en.wikipedia.org/wiki/Schmitt_trigger
         const LOW: u8 = 3;
@@ -98,5 +99,26 @@ impl Endpoint {
         } else {
             None
         }
+    }
+
+    pub fn alive(&mut self) -> Option<String> {
+        let response: Option<String> = match self.update_alive() {
+            (true, false) => match &self.last_error {
+                Some(error) => match error {
+                    EndpointError::Code(503) => Some(format!("API on {} has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding", self.name)),
+                    EndpointError::Code(other) => Some(format!("API on {} region is down (error code: {})", self.name, other)),
+                    EndpointError::Transport(transport) => Some(format!("API on {} region seems down (transport error: {})", self.name, transport)),
+                },
+                None => Some(format!("API on {} region seems down (no reason found)", self.name)),
+            },
+            (false, true) => Some(format!("API on {} region is up", self.name)),
+            _ => None,
+        };
+        if self.alive {
+            trace!("API of {} region is alive", self.name);
+        } else {
+            warn!("API of {} region is not alive", self.name);
+        }
+        response
     }
 }
