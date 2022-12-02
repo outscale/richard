@@ -422,16 +422,19 @@ impl Bot {
                         if self.github.releases.get(name).is_some() {
                             continue;
                         }
+                        trace!("Add it to the cache");
                         self.github.releases.insert(name.to_string(), None);
                     }
                     Some(releases) => match self.github.releases.get(name) {
                         None => {
+                            trace!("Got releases and the project wans not in the cache => storing");
                             let mut release_hashs: Vec<ReleaseHash> = Vec::new();
                             for release in releases {
                                 if release.is_not_official() {
                                     continue;
                                 }
                                 let release_hash = calculate_hash(&release);
+                                trace!("Release {:?} Hash {}", &release, &release_hash);
                                 release_hashs.push(release_hash)
                             }
                             self.github
@@ -439,6 +442,7 @@ impl Bot {
                                 .insert(name.to_string(), Some(release_hashs));
                         }
                         Some(None) => {
+                            trace!("Got releases and no release was found before => storing");
                             let mut release_hashs: Vec<ReleaseHash> = Vec::new();
                             for release in releases {
                                 if release.is_not_official() {
@@ -459,6 +463,7 @@ impl Bot {
                                 }
                                 let release_hash = calculate_hash(&release);
                                 release_hashs.push(release_hash);
+                                trace!("Release {:?} Hash {}", &release, &release_hash);
                                 if previous_releases.contains(&release_hash) {
                                     continue;
                                 }
