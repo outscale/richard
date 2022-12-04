@@ -6,7 +6,7 @@ use github::Github;
 use log::{debug, error, info, trace, warn};
 use rand::seq::IteratorRandom;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::error::Error;
 use std::process::exit;
@@ -425,17 +425,17 @@ impl Bot {
                         trace!("Add it to the cache");
                         self.github.releases.insert(name.to_string(), None);
                     }
-                    Some(releases) => match self.github.releases.get(name) {
+                    Some(releases) => match self.github.releases.get_mut(name) {
                         None => {
                             trace!("Got releases and the project wans not in the cache => storing");
-                            let mut release_hashs: Vec<ReleaseHash> = Vec::new();
+                            let mut release_hashs: HashSet<ReleaseHash> = HashSet::new();
                             for release in releases {
                                 if release.is_not_official() {
                                     continue;
                                 }
                                 let release_hash = calculate_hash(&release);
                                 trace!("Release {:?} Hash {}", &release, &release_hash);
-                                release_hashs.push(release_hash)
+                                release_hashs.insert(release_hash);
                             }
                             self.github
                                 .releases
@@ -443,36 +443,34 @@ impl Bot {
                         }
                         Some(None) => {
                             trace!("Got releases and no release was found before => storing");
-                            let mut release_hashs: Vec<ReleaseHash> = Vec::new();
+                            let mut release_hashs: HashSet<ReleaseHash> = HashSet::new();
                             for release in releases {
                                 if release.is_not_official() {
                                     continue;
                                 }
                                 let release_hash = calculate_hash(&release);
-                                release_hashs.push(release_hash);
+                                release_hashs.insert(release_hash);
                             }
                             self.github
                                 .releases
                                 .insert(name.to_string(), Some(release_hashs));
                         }
                         Some(Some(previous_releases)) => {
-                            let mut release_hashs: Vec<ReleaseHash> = Vec::new();
                             for release in releases {
                                 if release.is_not_official() {
                                     continue;
                                 }
                                 let release_hash = calculate_hash(&release);
-                                release_hashs.push(release_hash);
                                 trace!("Release {:?} Hash {}", &release, &release_hash);
                                 if previous_releases.contains(&release_hash) {
                                     continue;
                                 }
                                 info!("got release for {} with tag {}", name, release.tag_name);
-                                self.say(release.get_notification_message(&repo), true);
+                                previous_releases.insert(release_hash);
+                                self.webex_agent
+                                    .say_markdown(release.get_notification_message(&repo))
+                                    .ok();
                             }
-                            self.github
-                                .releases
-                                .insert(name.to_string(), Some(release_hashs));
                         }
                     },
                 }
