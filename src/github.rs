@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::{Hash, Hasher},
 };
 
@@ -15,7 +15,7 @@ const DEFAULT_ITEM_PER_PAGE: usize = 60;
 #[derive(Clone, Debug)]
 pub struct Github {
     pub token: String,
-    pub releases: HashMap<String, Option<Vec<ReleaseHash>>>,
+    pub releases: HashMap<String, Option<HashSet<ReleaseHash>>>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
