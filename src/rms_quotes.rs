@@ -39,4 +39,5 @@ Proprietary software rejects their thirst for knowledge: it says, “The knowled
     "I could have made money this way, and perhaps amused myself writing code. But I knew that at the end of my career, I would look back on years of building walls to divide people, and feel I had spent my life making the world a worse place.",
     "Stallman's Law (2012): While corporations dominate society and write the laws, each advance in technology is an opening for them to further restrict its users.",
     "I did write some code in Java once, but that was the island in Indonesia.",
+    "People have a tendancy to be very scared of terrorists and not so scared of cars. But cars are a much bigger danger. The US declares war on terrorism. The cars have been killing thousands of Americans and still we don’t have a global war on cars. People are bad judges of how important various dangers are.",
 ]
