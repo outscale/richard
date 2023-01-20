@@ -11,3 +11,16 @@ target/x86_64-unknown-linux-musl/release/richard: src/*.rs
 
 image: target/x86_64-unknown-linux-musl/release/richard
 	docker build -t richard:latest .
+
+.PHONY: cargo-test
+cargo-test:	
+	cargo test
+
+.PHONY: format-test
+format-test:
+	cargo fmt --check
+	cargo clippy
+
+.PHONY: format
+format:
+	cargo fmt
