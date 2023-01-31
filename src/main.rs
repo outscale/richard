@@ -1,155 +1,37 @@
 /* Copyright Outscale SAS */
-use crate::github::{calculate_hash, ReleaseHash};
+
 use clokwerk::Interval::Monday;
 use clokwerk::{Scheduler, TimeUnits};
 use github::Github;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use rand::seq::IteratorRandom;
-use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+
 use std::env;
-use std::error::Error;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
-
 mod feed;
 mod github;
 mod osc;
 mod roll;
+mod webex;
 use feed::Feed;
 
-const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
 static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
 static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
-static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
+const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 
-fn request_agent() -> ureq::Agent {
+pub fn request_agent() -> ureq::Agent {
     let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
     ureq::AgentBuilder::new().timeout(default_duration).build()
 }
 
 #[derive(Clone)]
-struct WebexAgent {
-    auth_header: String,
-    room_id: String,
-    last_unread_message_date: Option<String>,
-}
-
-impl WebexAgent {
-    fn new(token: String, room_id: String) -> WebexAgent {
-        WebexAgent {
-            auth_header: format!("Bearer {}", token),
-            room_id,
-            last_unread_message_date: None,
-        }
-    }
-
-    fn post<T: Into<String>>(&self, url: T) -> ureq::Request {
-        let url = url.into();
-        let agent = request_agent();
-        agent.post(&url).set("Authorization", &self.auth_header)
-    }
-
-    fn get<T: Into<String>>(&self, url: T) -> ureq::Request {
-        let url = url.into();
-        let agent = request_agent();
-        agent.get(&url).set("Authorization", &self.auth_header)
-    }
-
-    fn check(&self) -> Result<(), Box<ureq::Error>> {
-        let url = format!(
-            "https://webexapis.com/v1/rooms/{}/meetingInfo",
-            self.room_id
-        );
-        if let Err(e) = self.get(&url).call() {
-            info!("checking Webex API: KO");
-            return Err(Box::new(e));
-        }
-        info!("checking Webex API: OK");
-        Ok(())
-    }
-
-    fn say<S: Into<String>>(&self, message: S) -> Result<(), Box<ureq::Error>> {
-        self.post("https://webexapis.com/v1/messages")
-            .send_json(ureq::json!({
-            "roomId": &self.room_id,
-            "text": &message.into()
-            }))?;
-        Ok(())
-    }
-
-    fn say_markdown<S: Into<String>>(&self, message: S) -> Result<(), Box<ureq::Error>> {
-        self.post("https://webexapis.com/v1/messages")
-            .send_json(ureq::json!({
-            "roomId": &self.room_id,
-            "markdown": &message.into()
-            }))?;
-        Ok(())
-    }
-
-    fn respond<P, M>(&self, parent: P, message: M) -> Result<(), Box<ureq::Error>>
-    where
-        P: Into<String>,
-        M: Into<String>,
-    {
-        self.post("https://webexapis.com/v1/messages")
-            .send_json(ureq::json!({
-            "roomId": &self.room_id,
-            "parentId": &parent.into(),
-            "text": &message.into()
-            }))?;
-        Ok(())
-    }
-
-    fn unread_messages(&mut self) -> Result<WebexMessages, Box<dyn Error>> {
-        let url = format!(
-            "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
-            self.room_id
-        );
-        let mut res: WebexMessages = self.get(&url).call()?.into_json()?;
-
-        // Sort messages by date
-        res.items.sort_by(|a, b| a.created.cmp(&b.created));
-
-        // Filter seen messages
-        if let Some(last) = &self.last_unread_message_date {
-            res.items.retain(|m| m.created > *last);
-        }
-
-        // Update last seen date
-        if let Some(m) = res.items.iter().last() {
-            let date = Some(m.created.clone());
-            if self.last_unread_message_date.is_none() {
-                res.items.clear();
-            }
-            self.last_unread_message_date = date;
-        } else if self.last_unread_message_date.is_none() {
-            self.last_unread_message_date = Some(String::from("0"));
-        }
-
-        Ok(res)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct WebexMessages {
-    items: Vec<WebexMessage>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct WebexMessage {
-    id: String,
-    text: String,
-    created: String,
-}
-
-#[derive(Clone)]
-struct Bot {
-    webex_agent: WebexAgent,
+pub struct Bot {
+    webex_agent: webex::WebexAgent,
     endpoints: Vec<osc::Endpoint>,
     api_page: Option<String>,
     omi_page: Option<String>,
@@ -158,24 +40,21 @@ struct Bot {
 }
 
 impl Bot {
-    fn load() -> Option<Self> {
+    pub fn load() -> Option<Self> {
         let webex_token = load_env("WEBEX_TOKEN")?;
         let webex_room_id = load_env("WEBEX_ROOM_ID")?;
         let github_token = load_env("GITHUB_TOKEN")?;
         Some(Bot {
-            webex_agent: WebexAgent::new(webex_token, webex_room_id),
+            webex_agent: webex::WebexAgent::new(webex_token, webex_room_id),
             endpoints: Bot::load_endpoints(),
             api_page: None,
             omi_page: None,
-            github: Github {
-                token: github_token,
-                releases: HashMap::new(),
-            },
+            github: Github::new(github_token),
             feeds: Bot::load_feeds(),
         })
     }
 
-    fn load_endpoints() -> Vec<osc::Endpoint> {
+    pub fn load_endpoints() -> Vec<osc::Endpoint> {
         let mut endpoints = Vec::new();
         for i in 0..100 {
             let name = load_env(&format!("REGION_{}_NAME", i));
@@ -192,7 +71,7 @@ impl Bot {
         endpoints
     }
 
-    fn load_feeds() -> Vec<Feed> {
+    pub fn load_feeds() -> Vec<Feed> {
         let mut feeds = Vec::new();
         for i in 0..100 {
             let name = load_env(&format!("FEED_{}_NAME", i));
@@ -208,12 +87,12 @@ impl Bot {
         feeds
     }
 
-    fn check(&self) -> Result<(), Box<ureq::Error>> {
+    pub fn check(&self) -> Result<(), Box<ureq::Error>> {
         self.webex_agent.check()?;
         Ok(())
     }
 
-    fn say<S: Into<String>>(&self, message: S, markdown: bool) {
+    pub fn say<S: Into<String>>(&self, message: S, markdown: bool) {
         let message = message.into();
         info!("bot says: {}", message);
         if markdown {
@@ -225,7 +104,7 @@ impl Bot {
         }
     }
 
-    fn respond<P, M>(&self, parent: P, message: M)
+    pub fn respond<P, M>(&self, parent: P, message: M)
     where
         P: Into<String>,
         M: Into<String>,
@@ -238,13 +117,13 @@ impl Bot {
         }
     }
 
-    fn say_messages(&self, messages: Vec<String>) {
+    pub fn say_messages(&self, messages: Vec<String>) {
         for message in messages.iter() {
             self.say(message, false);
         }
     }
 
-    fn endpoint_version_update(&mut self) {
+    pub fn endpoint_version_update(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
             info!("updating {}", endpoint.name);
@@ -255,7 +134,7 @@ impl Bot {
         self.say_messages(messages);
     }
 
-    fn endpoint_error_rate_update(&mut self) {
+    pub fn endpoint_error_rate_update(&mut self) {
         for endpoint in self.endpoints.iter_mut() {
             if let Some(error_rate) = endpoint.update_error_rate() {
                 if error_rate > HIGH_ERROR_RATE {
@@ -269,7 +148,7 @@ impl Bot {
         }
     }
 
-    fn api_online_check(&mut self) {
+    pub fn api_online_check(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
             if let Some(response) = endpoint.alive() {
@@ -279,7 +158,7 @@ impl Bot {
         self.say_messages(messages);
     }
 
-    fn hello(&self) {
+    pub fn hello(&self) {
         const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
         let mut rng = rand::thread_rng();
         if let Some(quote) = RMS_QUOTES.iter().choose(&mut rng) {
@@ -287,7 +166,7 @@ impl Bot {
         }
     }
 
-    fn actions(&mut self) {
+    pub fn actions(&mut self) {
         match self.webex_agent.unread_messages() {
             Ok(messages) => {
                 for m in messages.items {
@@ -303,6 +182,8 @@ impl Bot {
                         self.respond(m.id, "You should consider repentance. See https://www.gnu.org/fun/jokes/gospel.html")
                     } else if m.text.contains("roll") {
                         self.action_roll(&m);
+                    } else if m.text.contains("describe") {
+                        self.github.describe_release(m, self.clone())
                     } else {
                         info!("ignoring message");
                     }
@@ -312,7 +193,7 @@ impl Bot {
         };
     }
 
-    fn action_roll(&mut self, message: &WebexMessage) {
+    fn action_roll(&mut self, message: &webex::WebexMessage) {
         let Some(response) = roll::gen(&message.text) else {
             self.respond(message.id.clone(), roll::help());
             return;
@@ -320,11 +201,12 @@ impl Bot {
         self.respond(message.id.clone(), &response);
     }
 
-    fn respond_status<S: Into<String>>(&self, parent: S) {
+    pub fn respond_status<S: Into<String>>(&self, parent: S) {
         let mut response = String::new();
         for e in &self.endpoints {
             let version = match &e.version {
                 Some(v) => v.clone(),
+
                 None => "unkown".to_string(),
             };
             let s = format!(
@@ -336,7 +218,7 @@ impl Bot {
         self.respond(parent, response);
     }
 
-    fn check_api_page_update(&mut self) {
+    pub fn check_api_page_update(&mut self) {
         let agent = request_agent();
         let req = match agent.get(API_DOC_URL).call() {
             Ok(req) => req,
@@ -369,7 +251,7 @@ impl Bot {
         self.api_page = Some(body);
     }
 
-    fn check_omi_page_update(&mut self) {
+    pub fn check_omi_page_update(&mut self) {
         let agent = request_agent();
         let req = match agent.get(OMI_DOC_URL).call() {
             Ok(req) => req,
@@ -402,83 +284,7 @@ impl Bot {
         self.omi_page = Some(body);
     }
 
-    fn check_github_release(&mut self) {
-        for org_name in GITHUB_ORG_NAMES {
-            info!("retrieving all repos from {}", org_name);
-
-            let repos = match self.github.get_all_repos(org_name) {
-                Some(value) => value,
-                None => continue,
-            };
-            for repo in repos {
-                if repo.is_not_maintained() {
-                    continue;
-                }
-                trace!("retrieving latest release for {}/{}", org_name, repo.name);
-                let name = &repo.full_name;
-                match self.github.get_releases(name) {
-                    None => {
-                        // Error while retrieving the release
-                        if self.github.releases.get(name).is_some() {
-                            continue;
-                        }
-                        trace!("Add it to the cache");
-                        self.github.releases.insert(name.to_string(), None);
-                    }
-                    Some(releases) => match self.github.releases.get_mut(name) {
-                        None => {
-                            trace!("Got releases and the project wans not in the cache => storing");
-                            let mut release_hashs: HashSet<ReleaseHash> = HashSet::new();
-                            for release in releases {
-                                if release.is_not_official() {
-                                    continue;
-                                }
-                                let release_hash = calculate_hash(&release);
-                                trace!("Release {:?} Hash {}", &release, &release_hash);
-                                release_hashs.insert(release_hash);
-                            }
-                            self.github
-                                .releases
-                                .insert(name.to_string(), Some(release_hashs));
-                        }
-                        Some(None) => {
-                            trace!("Got releases and no release was found before => storing");
-                            let mut release_hashs: HashSet<ReleaseHash> = HashSet::new();
-                            for release in releases {
-                                if release.is_not_official() {
-                                    continue;
-                                }
-                                let release_hash = calculate_hash(&release);
-                                release_hashs.insert(release_hash);
-                            }
-                            self.github
-                                .releases
-                                .insert(name.to_string(), Some(release_hashs));
-                        }
-                        Some(Some(previous_releases)) => {
-                            for release in releases {
-                                if release.is_not_official() {
-                                    continue;
-                                }
-                                let release_hash = calculate_hash(&release);
-                                trace!("Release {:?} Hash {}", &release, &release_hash);
-                                if previous_releases.contains(&release_hash) {
-                                    continue;
-                                }
-                                info!("got release for {} with tag {}", name, release.tag_name);
-                                previous_releases.insert(release_hash);
-                                self.webex_agent
-                                    .say_markdown(release.get_notification_message(&repo))
-                                    .ok();
-                            }
-                        }
-                    },
-                }
-            }
-        }
-    }
-
-    fn check_feeds(&mut self) {
+    pub fn check_feeds(&mut self) {
         let mut messages: Vec<String> = Vec::new();
         for feed in &mut self.feeds {
             if feed.update() {
@@ -501,6 +307,7 @@ impl Bot {
 
 fn run_scheduler(bot: Bot) {
     let mut scheduler = Scheduler::new();
+    let webex_agent = bot.webex_agent.clone();
     let shared_bot = Arc::new(RwLock::new(bot));
 
     let sb = shared_bot.clone();
@@ -559,10 +366,12 @@ fn run_scheduler(bot: Bot) {
         }
     });
 
-    let sb = shared_bot;
+    let sb = shared_bot.clone();
     scheduler.every(600.seconds()).run(move || {
         if let Ok(mut bot) = sb.write() {
-            bot.check_github_release();
+            bot.github
+                .check_specific_github_release(webex_agent.clone());
+            bot.github.check_github_release(webex_agent.clone());
         }
     });
 
@@ -572,7 +381,7 @@ fn run_scheduler(bot: Bot) {
     }
 }
 
-fn load_env(env_name: &str) -> Option<String> {
+pub fn load_env(env_name: &str) -> Option<String> {
     let value = match env::var(env_name) {
         Ok(v) => v,
         Err(e) => {
@@ -588,7 +397,7 @@ fn load_env(env_name: &str) -> Option<String> {
     Some(value)
 }
 
-fn main() {
+pub fn main() {
     env_logger::init();
     let bot = match Bot::load() {
         Some(b) => b,
@@ -597,10 +406,10 @@ fn main() {
             exit(1);
         }
     };
-
     if let Err(e) = bot.check() {
         error!("error: {}", e);
         exit(1);
     }
+
     run_scheduler(bot);
 }

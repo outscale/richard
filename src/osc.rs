@@ -1,7 +1,7 @@
 use crate::request_agent;
+use log::{trace, warn};
 use std::cmp::min;
 use std::error::Error;
-use log::{warn, trace};
 
 #[derive(Clone)]
 pub struct Endpoint {
