@@ -1,7 +1,7 @@
 use crate::request_agent;
 use feed_rs::model;
 use feed_rs::parser::parse;
-use log::info;
+use log::{info, error};
 use std::cmp::Ordering;
 use std::error::Error;
 
@@ -40,7 +40,7 @@ impl Feed {
         let response = match request_agent().get(&self.url).call() {
             Ok(resp) => resp,
             Err(err) => {
-                eprintln!("error: cannot read feed located on {}: {}", self.url, err);
+                error!("cannot read feed located on {}: {}", self.url, err);
                 return Err(Box::new(err));
             }
         };
