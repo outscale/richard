@@ -88,7 +88,7 @@ impl WebexAgent {
             "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
             self.room_id
         );
-        let mut res: WebexMessages = self.get(&url).call()?.into_json()?;
+        let mut res: WebexMessages = self.get(url).call()?.into_json()?;
 
         // Sort messages by date
         res.items.sort_by(|a, b| a.created.cmp(&b.created));

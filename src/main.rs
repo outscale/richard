@@ -162,7 +162,7 @@ impl Bot {
         const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
         let mut rng = rand::thread_rng();
         if let Some(quote) = RMS_QUOTES.iter().choose(&mut rng) {
-            self.say(&quote.to_string(), false);
+            self.say(quote.to_string(), false);
         }
     }
 
@@ -198,7 +198,7 @@ impl Bot {
             self.respond(message.id.clone(), roll::help());
             return;
         };
-        self.respond(message.id.clone(), &response);
+        self.respond(message.id.clone(), response);
     }
 
     pub fn respond_status<S: Into<String>>(&self, parent: S) {

@@ -275,8 +275,7 @@ impl Github {
                 exit(1);
             }
         }
-        let mut repo_specific_names = Vec::new();
-        repo_specific_names.push(repo_specific_name.to_string());
+        let repo_specific_names = vec![repo_specific_name.to_string()];
 
         let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names) {
             Some(value) => value,
