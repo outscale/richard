@@ -20,6 +20,7 @@ Commands are read when Richard is notified in the configured room.
 - `roll <dices>`: roll dices where `<dice>` is formated like `1d20` (1 dice of 20 faces)
 - `help`: show all available commands
 - `describe <org_name> <repo_name> <version>`: descibe the content of a release 
+
 # Build
 
 1. Install [Rustlang](https://www.rust-lang.org/)

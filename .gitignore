@@ -1,4 +1,4 @@
-config.env
+*.env
 
 # Added by cargo
 

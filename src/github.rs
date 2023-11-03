@@ -1,6 +1,6 @@
 use crate::webex;
+use crate::bot::request_agent;
 use crate::{
-    request_agent,
     webex::{WebexAgent, WebexMessage},
     Bot,
 };
@@ -8,13 +8,14 @@ use lazy_static::lazy_static;
 use log::trace;
 use log::{error, info};
 use regex::Regex;
-use serde::Deserialize;
 use std::process::exit;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::{Hash, Hasher},
 };
 pub type ReleaseHash = u64;
+use std::error::Error;
+use serde::{Deserialize, Serialize};
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
 static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
@@ -55,29 +56,44 @@ impl Github {
             releases: HashMap::new(),
         }
     }
-    pub fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
-        let agent = request_agent();
+    pub async fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
+        let Ok(agent) = request_agent() else {
+            return None;
+        };
         let url = format!("https://api.github.com/orgs/{}/repos", org_name);
         let mut page = 1;
         let mut results: Vec<Repo> = Vec::new();
+        let default_items_per_page = DEFAULT_ITEM_PER_PAGE.to_string();
         loop {
-            let req = match agent
+            let page_str = page.to_string();
+            let mut params = HashMap::new();
+            params.insert("type", "public");
+            params.insert("per_page", &default_items_per_page);
+            params.insert("page", page_str.as_str());
+            let resp = match agent
                 .get(&url)
-                .set("Authorization", &format!("token {}", self.token))
-                .set("Accept", "application/vnd.github+json")
-                .query("type", "public")
-                .query("per_page", &DEFAULT_ITEM_PER_PAGE.to_string())
-                .query("page", &page.to_string())
-                .call()
+                .header("Authorization", &format!("token {}", self.token))
+                .header("Accept", "application/vnd.github+json")
+                .form(&params)
+                .send()
+                .await
             {
-                Ok(req) => req,
+                Ok(res) => res,
                 Err(e) => {
                     error!("error: cannot listing all repo for {}: {}", org_name, e);
                     return None;
                 }
             };
 
-            let mut json: Vec<Repo> = match req.into_json() {
+            let body = match resp.text().await {
+                Ok(body) => body,
+                Err(e) => {
+                    error!("cannot get text: {:#?}", e);
+                    return None;
+                }
+            };
+
+            let mut json: Vec<Repo> = match serde_json::from_str(&body) {
                 Err(e) => {
                     error!("cannot deserializing all repo for {}: {}", org_name, e);
                     return None;
@@ -98,8 +114,9 @@ impl Github {
 
         Some(results)
     }
+
     // Trigger specific github action dispatch
-    pub fn trigger_version_github_action(
+    pub async fn trigger_version_github_action(
         &self,
         org_name: &str,
         repo_name: std::string::String,
@@ -110,16 +127,27 @@ impl Github {
             "https://api.github.com/repos/{}/{}/dispatches",
             org_name, repo_name
         );
-
-        let req = match ureq::post(&url)
-            .set("Authorization", &format!("Bearer {}", self.token))
-            .set("Accept", "application/vnd.github+json")
-            .send_json(ureq::json!({
-                "event_type": event_type,
-                "client_payload": {
-                    "versions": [ version ],
-                }
-            })) {
+        let Ok(agent) = request_agent() else {
+            error!("cannot create agent");
+            return None;
+        };
+        let Ok(json_body) = serde_json::to_string(&QueryVersions {
+            event_type: event_type.to_string(),
+            client_payload: QueryVersionsClientPayload {
+                versions: vec![version.to_string()],
+            }
+        }) else {
+            error!("cannot convert to string QueryVersions");
+            return None;
+        };
+        let req = match agent
+            .post(&url)
+            .header("Authorization", &format!("Bearer {}", self.token))
+            .header("Accept", "application/vnd.github+json")
+            .body(json_body)
+            .send()
+            .await
+            {
             Ok(req) => req,
             Err(e) => {
                 error!("error: can not post for {}/{}: {}", org_name, repo_name, e);
@@ -139,34 +167,50 @@ impl Github {
         Some("Trigger has been launched".to_string())
     }
     // Get specific repo
-    pub fn get_specific_repos(
+    pub async fn get_specific_repos(
         &self,
         org_name: &str,
         repo_names: &Vec<std::string::String>,
     ) -> Option<Vec<Repo>> {
-        let agent = request_agent();
+        let Ok(agent) = request_agent() else {
+            return None;
+        };
         let url = format!("https://api.github.com/orgs/{}/repos", org_name);
         let mut page = 1;
         let mut target_repos: Vec<Repo> = Vec::new();
         let mut results: Vec<Repo> = Vec::new();
+        let default_items_per_page = DEFAULT_ITEM_PER_PAGE.to_string();
 
         loop {
-            let req = match agent
+            let page_str = page.to_string();
+            let mut params = HashMap::new();
+            params.insert("type", "public");
+            params.insert("per_page", &default_items_per_page);
+            params.insert("page", page_str.as_str());
+            let resp = match agent
                 .get(&url)
-                .set("Authorization", &format!("token {}", self.token))
-                .set("Accept", "application/vnd.github+json")
-                .query("type", "public")
-                .query("per_page", &DEFAULT_ITEM_PER_PAGE.to_string())
-                .query("page", &page.to_string())
-                .call()
+                .header("Authorization", &format!("token {}", self.token))
+                .header("Accept", "application/vnd.github+json")
+                .form(&params)
+                .send()
+                .await
             {
-                Ok(req) => req,
+                Ok(res) => res,
                 Err(e) => {
                     error!("error: cannot listing all repo for {}: {}", org_name, e);
                     return None;
                 }
             };
-            let json: Vec<Repo> = match req.into_json() {
+
+            let body = match resp.text().await {
+                Ok(body) => body,
+                Err(e) => {
+                    error!("cannot get text: {:#?}", e);
+                    return None;
+                }
+            };
+
+            let json: Vec<Repo> = match serde_json::from_str(&body) {
                 Err(e) => {
                     error!("cannot deserializing all repo for {}: {}", org_name, e);
                     return None;
@@ -193,54 +237,71 @@ impl Github {
 
         Some(results)
     }
-    pub fn describe_release(&mut self, m: WebexMessage, bot: Bot) {
+    pub async fn describe_release(&mut self, m: WebexMessage, bot: Bot) {
         let mut message = m.text.split_whitespace();
         let message_id = m.id;
         if message.next() != Some("describe") {
             bot.respond(
                 &message_id,
                 "bad format: describe org_name repo_name version",
-            );
+            ).await;
         }
         let org_specific_name = message.next().unwrap_or_else(|| exit(1));
         let repo_specific_name = message.next().unwrap_or_else(|| exit(1));
         let version = message.next().unwrap_or_else(|| exit(1));
         if repo_specific_name != GITHUB_REPO_NAME_WITH_CHANGELOG {
-            let release_body = self
+            let Some(release_body) = self
                 .get_github_release_body(org_specific_name, repo_specific_name, version)
-                .unwrap();
-            bot.respond(&message_id, release_body);
+                .await else {
+                    return;
+                };
+            bot.respond(&message_id, release_body).await;
         } else {
             let version_url = GITHUB_URL_WITH_CHANGELOG.to_owned() + version;
-            bot.respond(&message_id, version_url);
+            bot.respond(&message_id, version_url).await;
         }
     }
-    pub fn get_releases(&self, repo_name: &str) -> Option<Vec<Release>> {
-        let agent = request_agent();
+    pub async fn get_releases(&self, repo_name: &str) -> Option<Vec<Release>> {
+        let Ok(agent) = request_agent() else {
+            return None;
+        };
         let url = format!("https://api.github.com/repos/{}/releases", repo_name);
         let mut page = 1;
         let mut results: Vec<Release> = Vec::new();
+        let default_items_per_page = DEFAULT_ITEM_PER_PAGE.to_string();
+
         loop {
-            let req = match agent
+            let page_str = page.to_string();
+            let mut params = HashMap::new();
+            params.insert("type", "public");
+            params.insert("per_page", &default_items_per_page);
+            params.insert("page", page_str.as_str());
+            let resp = match agent
                 .get(&url)
-                .set("Authorization", &format!("token {}", self.token))
-                .set("Accept", "application/vnd.github+json")
-                .query("per_page", &DEFAULT_ITEM_PER_PAGE.to_string())
-                .query("page", &page.to_string())
-                .call()
+                .header("Authorization", &format!("token {}", self.token))
+                .header("Accept", "application/vnd.github+json")
+                .form(&params)
+                .send()
+                .await
             {
-                Ok(req) => req,
+                Ok(res) => res,
                 Err(e) => {
-                    error!("cannot retrieve latest release for {}: {}", repo_name, e);
+                    error!("cannot get releases: {:#?}:", e);
                     return None;
                 }
             };
-            let mut releases: Vec<Release> = match req.into_json() {
+
+            let body = match resp.text().await {
+                Ok(body) => body,
                 Err(e) => {
-                    error!(
-                        "cannot deserializing latest release for {}: {}",
-                        repo_name, e
-                    );
+                    error!("cannot get text: {:#?}", e);
+                    return None;
+                }
+            };
+
+            let mut releases: Vec<Release> = match serde_json::from_str(&body) {
+                Err(e) => {
+                    error!("cannot deserializing releases: {:#?}", e);
                     return None;
                 }
                 Ok(body) => body,
@@ -258,7 +319,7 @@ impl Github {
         Some(results)
     }
     // retrieve github body
-    pub fn get_github_release_body(
+    pub async fn get_github_release_body(
         &mut self,
         org_specific_name: &str,
         repo_specific_name: &str,
@@ -277,7 +338,7 @@ impl Github {
         }
         let repo_specific_names = vec![repo_specific_name.to_string()];
 
-        let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names) {
+        let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names).await {
             Some(value) => value,
             None => Vec::new(),
         };
@@ -292,7 +353,7 @@ impl Github {
                 repo.name
             );
             let name = &repo.full_name;
-            match self.get_releases(name) {
+            match self.get_releases(name).await {
                 None => {
                     if self.releases.get(name).is_some() {
                         continue;
@@ -309,7 +370,7 @@ impl Github {
         }
         Some(release_body)
     }
-    pub fn check_specific_github_release(&mut self, webex_agent: WebexAgent) {
+    pub async fn check_specific_github_release(&mut self, webex_agent: &WebexAgent) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut repo_specific_names: Vec<std::string::String> = Vec::new();
         let mut release_target_name = "v0.0.0".to_string();
 
@@ -317,7 +378,7 @@ impl Github {
             repo_specific_names.push(repo_specific_name.to_string())
         }
         for org_specific_name in GITHUB_SPECIFIC_ORG_NAMES {
-            let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names) {
+            let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names).await {
                 Some(value) => value,
                 None => continue,
             };
@@ -331,7 +392,7 @@ impl Github {
                     repo.name
                 );
                 let name = &repo.full_name;
-                match self.get_releases(name) {
+                match self.get_releases(name).await {
                     None => {
                         if self.releases.get(name).is_some() {
                             continue;
@@ -380,7 +441,7 @@ impl Github {
                                     release.get_notification_message(&repo);
                                 release_target_name = release.tag_name;
                                 previous_releases.insert(release_hash);
-                                webex_agent.say_markdown(release_get_notification).ok();
+                                webex_agent.say_markdown(release_get_notification).await;
                                 previous_releases.insert(release_hash);
                             }
                         }
@@ -411,16 +472,18 @@ impl Github {
                         GITHUB_REPO_NAME_TRIGGER.to_string(),
                         event_type,
                         value,
-                    );
+                    ).await;
                 }
             }
         }
+        Ok(())
     }
-    pub fn check_github_release(&mut self, webex_agent: WebexAgent) {
+
+    pub async fn check_github_release(&mut self, webex_agent: &WebexAgent) -> Result<(), Box<dyn Error + Send + Sync>> {
         for org_name in GITHUB_ORG_NAMES {
             info!("retrieving all repos from {}", org_name);
 
-            let repos = match self.get_all_repos(org_name) {
+            let repos = match self.get_all_repos(org_name).await {
                 Some(value) => value,
                 None => continue,
             };
@@ -430,7 +493,7 @@ impl Github {
                 }
                 trace!("retrieving latest release for {}/{}", org_name, repo.name);
                 let name = &repo.full_name;
-                match self.get_releases(name) {
+                match self.get_releases(name).await {
                     None => {
                         // Error while retrieving the release
                         if self.releases.get(name).is_some() {
@@ -478,16 +541,16 @@ impl Github {
                                 info!("got release for {} with tag {}", name, release.tag_name);
                                 previous_releases.insert(release_hash);
                                 webex::WebexAgent::say_markdown(
-                                    &webex_agent,
+                                    webex_agent,
                                     release.get_notification_message(&repo),
-                                )
-                                .ok();
+                                ).await;
                             }
                         }
                     },
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -518,19 +581,18 @@ pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use crate::load_env;
-
+    use crate::bot::load_env;
+    use tokio_test::block_on;
     use super::*;
     #[test]
     // Check get repo is a success
     fn get_repo_success() {
         let org_specific_name = "kubernetes";
-        let mut repo_specific_name = Vec::new();
-        repo_specific_name.push("kubernetes".to_string());
+        let repo_specific_name = vec!["kubernetes".to_string()];
 
         let github_token = load_env("GITHUB_TOKEN");
         let github = Github::new(github_token.unwrap_or_default());
-        let repos = match github.get_specific_repos(org_specific_name, &repo_specific_name) {
+        let repos = match block_on(github.get_specific_repos(org_specific_name, &repo_specific_name)) {
             Some(value) => value,
             None => Vec::new(),
         };
@@ -547,12 +609,12 @@ mod test {
         let version = "v1.26.0";
         let github_token = load_env("GITHUB_TOKEN");
         let github = Github::new(github_token.unwrap_or_default());
-        let trigger = match github.trigger_version_github_action(
+        let trigger = match block_on(github.trigger_version_github_action(
             org_specific_name,
             repo_specific_name.to_owned(),
             event_type,
             &version.to_string(),
-        ) {
+        )) {
             Some(value) => value,
             None => "".to_string(),
         };
@@ -567,10 +629,22 @@ mod test {
         let github_token = load_env("GITHUB_TOKEN");
         let mut github = Github::new(github_token.unwrap_or_default());
         let release_body =
-            match github.get_github_release_body(org_specific_name, repo_specific_name, version) {
+            match block_on(github.get_github_release_body(org_specific_name, repo_specific_name, version)) {
                 Some(release_body) => release_body,
                 None => "no body".to_string(),
             };
-        assert_eq!(release_body.contains("Documentation"), true);
+        assert!(release_body.contains("Documentation"));
     }
+}
+
+
+#[derive(Clone, Debug, Serialize)]
+struct QueryVersions {
+    event_type: String,
+    client_payload: QueryVersionsClientPayload,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct QueryVersionsClientPayload {
+    versions: Vec<String>,
 }

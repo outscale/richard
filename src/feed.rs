@@ -1,4 +1,4 @@
-use crate::request_agent;
+use crate::bot::request_agent;
 use feed_rs::model;
 use feed_rs::parser::parse;
 use log::{info, error};
@@ -21,8 +21,8 @@ impl Feed {
         }
     }
 
-    pub fn update(&mut self) -> bool {
-        let new_entry = self.last_entry();
+    pub async fn update(&mut self) -> bool {
+        let new_entry = self.last_entry().await;
         let changed = match (&self.latest, &new_entry) {
             (None, None) => false,
             (Some(old), Some(new)) => old.id != new.id,
@@ -35,23 +35,23 @@ impl Feed {
         changed
     }
 
-    fn download(&self) -> Result<model::Feed, Box<dyn Error>> {
+    async fn download(&self) -> Result<model::Feed, Box<dyn Error + Send + Sync>> {
         info!("downloading feeds for {}", self.name);
-        let response = match request_agent().get(&self.url).call() {
-            Ok(resp) => resp,
+        let body = match request_agent()?.get(&self.url).send().await {
+            Ok(body) => body.text().await?,
             Err(err) => {
                 error!("cannot read feed located on {}: {}", self.url, err);
                 return Err(Box::new(err));
             }
         };
-        match parse(response.into_reader()) {
+        match parse(body.as_bytes()) {
             Ok(feed) => Ok(feed),
             Err(error) => Err(Box::new(error)),
         }
     }
 
-    fn last_entry(&self) -> Option<model::Entry> {
-        let mut feed = self.download().ok()?;
+    async fn last_entry(&self) -> Option<model::Entry> {
+        let mut feed = self.download().await.ok()?;
         feed.entries.sort_by(|a, b| {
             if let Some(date_a) = a.published {
                 if let Some(date_b) = b.published {
