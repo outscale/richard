@@ -165,14 +165,11 @@ impl Bot {
                 for m in messages.items {
                     info!("received message: {}", m.text);
                     if m.text.contains("help") {
-                        // Do not mention emacs
                         self.respond(m.id, "available commands are: ping, status, roll, help").await;
                     } else if m.text.contains("ping") {
                         self.respond(m.id, "pong").await;
                     } else if m.text.contains("status") {
                         self.respond_status(&m.id).await;
-                    } else if m.text.contains("emacs") {
-                        self.respond(m.id, "You should consider repentance. See https://www.gnu.org/fun/jokes/gospel.html").await
                     } else if m.text.contains("roll") {
                         self.action_roll(&m).await;
                     } else if m.text.contains("describe") {
