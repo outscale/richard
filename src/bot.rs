@@ -3,6 +3,7 @@ use crate::webex;
 use crate::osc;
 use crate::roll;
 use crate::feed::Feed;
+use crate::ollama::Ollama;
 use log::{debug, error, info, warn};
 use std::env;
 use tokio::sync::RwLock;
@@ -177,7 +178,11 @@ impl Bot {
                     } else if m.text.contains("describe") {
                         self.github.describe_release(m, self.clone()).await
                     } else {
-                        info!("ignoring message");
+                        let mut ollama = Ollama::default();
+                        match ollama.query(&m.text).await {
+                            Ok(message) => self.respond(m.id, message).await,
+                            Err(err) => error!("ollama responded: {:#?}", err),
+                        };
                     }
                 }
             }

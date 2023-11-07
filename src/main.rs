@@ -6,6 +6,7 @@ mod github;
 mod osc;
 mod roll;
 mod webex;
+mod ollama;
 
 use bot::Bot;
 use log::error;
