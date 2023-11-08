@@ -1,9 +1,9 @@
 use crate::bot::request_agent;
-use log::{trace, warn, error};
+use log::{error, trace, warn};
 use reqwest::StatusCode;
+use serde::Deserialize;
 use std::cmp::min;
 use std::error::Error;
-use serde::Deserialize;
 
 #[derive(Clone, Debug)]
 pub enum EndpointError {
@@ -80,8 +80,10 @@ impl Endpoint {
     pub async fn get_version(&self) -> Result<String, Box<dyn Error + Send + Sync>> {
         let body = request_agent()?
             .post(&self.endpoint)
-            .send().await?
-            .text().await?;
+            .send()
+            .await?
+            .text()
+            .await?;
         let response: VersionResponse = serde_json::from_str(body.as_str())?;
         Ok(response.version)
     }
@@ -91,7 +93,7 @@ impl Endpoint {
             Ok(agent) => agent,
             Err(err) => return Err(EndpointError::AgentInit(err.to_string())),
         };
-        
+
         let response = match agent.post(&self.endpoint).send().await {
             Ok(response) => response,
             Err(err) => return Err(EndpointError::from_reqwest(err)),
@@ -149,10 +151,13 @@ impl Endpoint {
                     EndpointError::AgentInit(err) => {
                         error!("{}", err.to_string());
                         None
-                    },
+                    }
                     err => Some(format!("{} region: {}", self.name, err.to_string())),
                 },
-                None => Some(format!("API on {} region seems down (no reason found)", self.name)),
+                None => Some(format!(
+                    "API on {} region seems down (no reason found)",
+                    self.name
+                )),
             },
             (false, true) => Some(format!("API on {} region is up", self.name)),
             _ => None,

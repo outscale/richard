@@ -1,9 +1,9 @@
 use crate::bot::request_agent;
-use log::{info, trace, error};
-use serde::Deserialize;
-use std::error::Error;
+use log::{error, info, trace};
 use reqwest::RequestBuilder;
+use serde::Deserialize;
 use serde::Serialize;
+use std::error::Error;
 
 #[derive(Clone)]
 pub struct WebexAgent {
@@ -30,18 +30,24 @@ impl WebexAgent {
         }
     }
 
-    pub fn post<T: Into<String>, J: Serialize + ?Sized>(&self, url: T, json: &J) -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
+    pub fn post<T: Into<String>, J: Serialize + ?Sized>(
+        &self,
+        url: T,
+        json: &J,
+    ) -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
         Ok(request_agent()?
-        .post(url.into())
-        .json(json)
-        .header("Authorization", &self.auth_header))
-        
+            .post(url.into())
+            .json(json)
+            .header("Authorization", &self.auth_header))
     }
 
-    pub fn get<T: Into<String>>(&self, url: T) -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
+    pub fn get<T: Into<String>>(
+        &self,
+        url: T,
+    ) -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
         Ok(request_agent()?
-        .get(url.into())
-        .header("Authorization", &self.auth_header))
+            .get(url.into())
+            .header("Authorization", &self.auth_header))
     }
 
     pub async fn check(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -50,8 +56,7 @@ impl WebexAgent {
             "https://webexapis.com/v1/rooms/{}/meetingInfo",
             self.room_id
         );
-        if let Err(e) = self.get(&url)?.send().await
-        {
+        if let Err(e) = self.get(&url)?.send().await {
             info!("checking Webex API: KO");
             return Err(Box::new(e));
         }
@@ -65,7 +70,6 @@ impl WebexAgent {
     }
 
     pub async fn say_markdown<S: Into<String>>(&self, message: S) {
-
         self.say_generic(message, true).await;
     }
 
@@ -83,15 +87,21 @@ impl WebexAgent {
             error!("cannot create post request");
             return;
         };
-        match builder
-            .send()
-            .await {
-                Ok(resp) => trace!("status: {}, content: {:#?}", resp.status().to_string(), resp.text().await),
-                Err(err) => error!("{}", err),
-            };
+        match builder.send().await {
+            Ok(resp) => trace!(
+                "status: {}, content: {:#?}",
+                resp.status().to_string(),
+                resp.text().await
+            ),
+            Err(err) => error!("{}", err),
+        };
     }
 
-    pub async fn respond<P, M>(&self, parent: P, message: M) -> Result<(), Box<dyn Error + Send + Sync>>
+    pub async fn respond<P, M>(
+        &self,
+        parent: P,
+        message: M,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>
     where
         P: Into<String>,
         M: Into<String>,

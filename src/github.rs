@@ -1,5 +1,5 @@
-use crate::webex;
 use crate::bot::request_agent;
+use crate::webex;
 use crate::{
     webex::{WebexAgent, WebexMessage},
     Bot,
@@ -14,8 +14,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 pub type ReleaseHash = u64;
-use std::error::Error;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
 static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
@@ -135,7 +135,7 @@ impl Github {
             event_type: event_type.to_string(),
             client_payload: QueryVersionsClientPayload {
                 versions: vec![version.to_string()],
-            }
+            },
         }) else {
             error!("cannot convert to string QueryVersions");
             return None;
@@ -147,7 +147,7 @@ impl Github {
             .body(json_body)
             .send()
             .await
-            {
+        {
             Ok(req) => req,
             Err(e) => {
                 error!("error: can not post for {}/{}: {}", org_name, repo_name, e);
@@ -244,7 +244,8 @@ impl Github {
             bot.respond(
                 &message_id,
                 "bad format: describe org_name repo_name version",
-            ).await;
+            )
+            .await;
         }
         let org_specific_name = message.next().unwrap_or_else(|| exit(1));
         let repo_specific_name = message.next().unwrap_or_else(|| exit(1));
@@ -252,9 +253,10 @@ impl Github {
         if repo_specific_name != GITHUB_REPO_NAME_WITH_CHANGELOG {
             let Some(release_body) = self
                 .get_github_release_body(org_specific_name, repo_specific_name, version)
-                .await else {
-                    return;
-                };
+                .await
+            else {
+                return;
+            };
             bot.respond(&message_id, release_body).await;
         } else {
             let version_url = GITHUB_URL_WITH_CHANGELOG.to_owned() + version;
@@ -338,7 +340,10 @@ impl Github {
         }
         let repo_specific_names = vec![repo_specific_name.to_string()];
 
-        let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names).await {
+        let repos = match self
+            .get_specific_repos(org_specific_name, &repo_specific_names)
+            .await
+        {
             Some(value) => value,
             None => Vec::new(),
         };
@@ -370,7 +375,10 @@ impl Github {
         }
         Some(release_body)
     }
-    pub async fn check_specific_github_release(&mut self, webex_agent: &WebexAgent) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn check_specific_github_release(
+        &mut self,
+        webex_agent: &WebexAgent,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut repo_specific_names: Vec<std::string::String> = Vec::new();
         let mut release_target_name = "v0.0.0".to_string();
 
@@ -378,7 +386,10 @@ impl Github {
             repo_specific_names.push(repo_specific_name.to_string())
         }
         for org_specific_name in GITHUB_SPECIFIC_ORG_NAMES {
-            let repos = match self.get_specific_repos(org_specific_name, &repo_specific_names).await {
+            let repos = match self
+                .get_specific_repos(org_specific_name, &repo_specific_names)
+                .await
+            {
                 Some(value) => value,
                 None => continue,
             };
@@ -472,14 +483,18 @@ impl Github {
                         GITHUB_REPO_NAME_TRIGGER.to_string(),
                         event_type,
                         value,
-                    ).await;
+                    )
+                    .await;
                 }
             }
         }
         Ok(())
     }
 
-    pub async fn check_github_release(&mut self, webex_agent: &WebexAgent) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn check_github_release(
+        &mut self,
+        webex_agent: &WebexAgent,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         for org_name in GITHUB_ORG_NAMES {
             info!("retrieving all repos from {}", org_name);
 
@@ -543,7 +558,8 @@ impl Github {
                                 webex::WebexAgent::say_markdown(
                                     webex_agent,
                                     release.get_notification_message(&repo),
-                                ).await;
+                                )
+                                .await;
                             }
                         }
                     },
@@ -581,9 +597,9 @@ pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::bot::load_env;
     use tokio_test::block_on;
-    use super::*;
     #[test]
     // Check get repo is a success
     fn get_repo_success() {
@@ -592,10 +608,11 @@ mod test {
 
         let github_token = load_env("GITHUB_TOKEN");
         let github = Github::new(github_token.unwrap_or_default());
-        let repos = match block_on(github.get_specific_repos(org_specific_name, &repo_specific_name)) {
-            Some(value) => value,
-            None => Vec::new(),
-        };
+        let repos =
+            match block_on(github.get_specific_repos(org_specific_name, &repo_specific_name)) {
+                Some(value) => value,
+                None => Vec::new(),
+            };
         for repo in repos {
             assert_eq!(repo.full_name, "kubernetes/kubernetes")
         }
@@ -628,15 +645,17 @@ mod test {
         let version = "v0.1.0";
         let github_token = load_env("GITHUB_TOKEN");
         let mut github = Github::new(github_token.unwrap_or_default());
-        let release_body =
-            match block_on(github.get_github_release_body(org_specific_name, repo_specific_name, version)) {
-                Some(release_body) => release_body,
-                None => "no body".to_string(),
-            };
+        let release_body = match block_on(github.get_github_release_body(
+            org_specific_name,
+            repo_specific_name,
+            version,
+        )) {
+            Some(release_body) => release_body,
+            None => "no body".to_string(),
+        };
         assert!(release_body.contains("Documentation"));
     }
 }
-
 
 #[derive(Clone, Debug, Serialize)]
 struct QueryVersions {

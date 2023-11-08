@@ -1,16 +1,16 @@
+use crate::feed::Feed;
 use crate::github::Github;
-use crate::webex;
+use crate::ollama::Ollama;
 use crate::osc;
 use crate::roll;
-use crate::feed::Feed;
-use crate::ollama::Ollama;
+use crate::webex;
 use log::{debug, error, info, warn};
-use std::env;
-use tokio::time::sleep;
-use std::time::Duration;
 use reqwest::Client;
+use std::env;
 use std::error::Error;
+use std::time::Duration;
 use tokio::task::JoinSet;
+use tokio::time::sleep;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
 
@@ -163,7 +163,8 @@ impl Bot {
                 for m in messages.items {
                     info!("received message: {}", m.text);
                     if m.text.contains("help") {
-                        self.respond(m.id, "available commands are: ping, status, roll, help").await;
+                        self.respond(m.id, "available commands are: ping, status, roll, help")
+                            .await;
                     } else if m.text.contains("ping") {
                         self.respond(m.id, "pong").await;
                     } else if m.text.contains("status") {
@@ -219,7 +220,8 @@ impl Bot {
                 self.say(
                     format!("Documentation front page has changed ({})", API_DOC_URL),
                     false,
-                ).await;
+                )
+                .await;
             }
         }
         self.api_page = Some(body);
@@ -235,7 +237,8 @@ impl Bot {
                 self.say(
                     format!("OMI page page has changed ({})", OMI_DOC_URL),
                     false,
-                ).await;
+                )
+                .await;
             }
         }
         self.omi_page = Some(body);
@@ -253,7 +256,7 @@ impl Bot {
         }
         if messages.is_empty() {
             info!("no new feed entry");
-            return Ok(())
+            return Ok(());
         } else {
             info!("we have {} new feed entries", messages.len());
         }
@@ -265,114 +268,113 @@ impl Bot {
 
     pub async fn run(self) {
         let mut tasks = JoinSet::new();
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    bot.endpoint_version_update().await;
-                    sleep(Duration::from_secs(600)).await;
-                }
-            }));
-        
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    bot.endpoint_error_rate_update().await;
-                    sleep(Duration::from_secs(2)).await;
-                }
-            }));
-
-            let bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                let day_s = 24 * 60 * 60;
-                loop {
-                    sleep(Duration::from_secs(7 * day_s)).await;
-                    bot.hello().await;
-                }
-            }));
-            
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    bot.api_online_check().await;
-                    sleep(Duration::from_secs(2)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    bot.actions().await;
-                    sleep(Duration::from_secs(10)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    bot.actions().await;
-                    sleep(Duration::from_secs(600)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    if let Err(err) = bot.check_api_page_update().await {
-                        error!("while checking api page update: {}", err);
-                    };
-                    sleep(Duration::from_secs(600)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    if let Err(err) = bot.check_omi_page_update().await {
-                        error!("while checking omi page update: {}", err);
-                    };
-                    sleep(Duration::from_secs(600)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    if let Err(err) = bot.check_feeds().await {
-                        error!("while checking feeds: {}", err);
-                    };
-                    sleep(Duration::from_secs(3600)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            let webex = self.webex_agent.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    if let Err(err) = bot.github.check_specific_github_release(&webex).await {
-                        error!("while checking specific github release: {}", err);
-                    }
-                    sleep(Duration::from_secs(600)).await;
-                }
-            }));
-
-            let mut bot = self.clone();
-            let webex = self.webex_agent.clone();
-            tasks.spawn(tokio::spawn(async move {
-                loop {
-                    if let Err(err) = bot.github.check_github_release(&webex).await {
-                        error!("while checking github release: {}", err);
-                    };
-                    sleep(Duration::from_secs(600)).await;
-                }
-            }));
-
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
             loop {
-                tasks.join_next().await;
-                debug!("this should not happen :)");
-                sleep(Duration::from_secs(1)).await;
+                bot.endpoint_version_update().await;
+                sleep(Duration::from_secs(600)).await;
             }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                bot.endpoint_error_rate_update().await;
+                sleep(Duration::from_secs(2)).await;
+            }
+        }));
+
+        let bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            let day_s = 24 * 60 * 60;
+            loop {
+                sleep(Duration::from_secs(7 * day_s)).await;
+                bot.hello().await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                bot.api_online_check().await;
+                sleep(Duration::from_secs(2)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                bot.actions().await;
+                sleep(Duration::from_secs(10)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                bot.actions().await;
+                sleep(Duration::from_secs(600)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                if let Err(err) = bot.check_api_page_update().await {
+                    error!("while checking api page update: {}", err);
+                };
+                sleep(Duration::from_secs(600)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                if let Err(err) = bot.check_omi_page_update().await {
+                    error!("while checking omi page update: {}", err);
+                };
+                sleep(Duration::from_secs(600)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                if let Err(err) = bot.check_feeds().await {
+                    error!("while checking feeds: {}", err);
+                };
+                sleep(Duration::from_secs(3600)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        let webex = self.webex_agent.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                if let Err(err) = bot.github.check_specific_github_release(&webex).await {
+                    error!("while checking specific github release: {}", err);
+                }
+                sleep(Duration::from_secs(600)).await;
+            }
+        }));
+
+        let mut bot = self.clone();
+        let webex = self.webex_agent.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                if let Err(err) = bot.github.check_github_release(&webex).await {
+                    error!("while checking github release: {}", err);
+                };
+                sleep(Duration::from_secs(600)).await;
+            }
+        }));
+
+        loop {
+            tasks.join_next().await;
+            debug!("this should not happen :)");
+            sleep(Duration::from_secs(1)).await;
         }
-        
+    }
 }
 
 pub fn load_env(env_name: &str) -> Option<String> {

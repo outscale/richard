@@ -1,7 +1,7 @@
 use log::trace;
-use std::{error::Error, time::Duration};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::{error::Error, time::Duration};
 
 pub struct Ollama {
     model: String,

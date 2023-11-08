@@ -3,10 +3,10 @@
 mod bot;
 mod feed;
 mod github;
+mod ollama;
 mod osc;
 mod roll;
 mod webex;
-mod ollama;
 
 use bot::Bot;
 use log::error;

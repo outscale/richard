@@ -1,7 +1,7 @@
 use crate::bot::request_agent;
 use feed_rs::model;
 use feed_rs::parser::parse;
-use log::{info, error};
+use log::{error, info};
 use std::cmp::Ordering;
 use std::error::Error;
 
