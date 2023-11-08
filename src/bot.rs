@@ -312,14 +312,6 @@ impl Bot {
         let mut bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
             loop {
-                bot.actions().await;
-                sleep(Duration::from_secs(600)).await;
-            }
-        }));
-
-        let mut bot = self.clone();
-        tasks.spawn(tokio::spawn(async move {
-            loop {
                 if let Err(err) = bot.check_api_page_update().await {
                     error!("while checking api page update: {}", err);
                 };
