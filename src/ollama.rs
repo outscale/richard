@@ -58,10 +58,7 @@ struct OllamaQuery {
 
 #[derive(Clone, Debug, Deserialize)]
 struct OllamaResponse {
-    model: String,
-    created_at: String,
     response: String,
-    done: bool,
     context: Option<Vec<usize>>,
 }
 
