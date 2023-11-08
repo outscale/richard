@@ -6,8 +6,6 @@ use crate::feed::Feed;
 use crate::ollama::Ollama;
 use log::{debug, error, info, warn};
 use std::env;
-use tokio::sync::RwLock;
-use std::sync::Arc;
 use tokio::time::sleep;
 use std::time::Duration;
 use reqwest::Client;
@@ -267,140 +265,103 @@ impl Bot {
 
     pub async fn run(self) {
         let mut tasks = JoinSet::new();
-
-            let webex_agent = self.webex_agent.clone();
-            let shared_bot = Arc::new(RwLock::new(self));
-
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut bot = sb.write().await;
-                        bot.endpoint_version_update().await;
-                    }
+                    bot.endpoint_version_update().await;
                     sleep(Duration::from_secs(600)).await;
                 }
             }));
         
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut bot = sb.write().await;
-                        bot.endpoint_error_rate_update().await;
-                    }
+                    bot.endpoint_error_rate_update().await;
                     sleep(Duration::from_secs(2)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
+            let bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 let day_s = 24 * 60 * 60;
                 loop {
                     sleep(Duration::from_secs(7 * day_s)).await;
-                    {
-                        let bot = sb.read().await;
-                        bot.hello().await;
-                    }
+                    bot.hello().await;
                 }
             }));
             
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut bot = sb.write().await;
-                        bot.api_online_check().await;
-                    }
+                    bot.api_online_check().await;
                     sleep(Duration::from_secs(2)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        shared.actions().await;
-                    }
+                    bot.actions().await;
                     sleep(Duration::from_secs(10)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        shared.actions().await;
-                    }
+                    bot.actions().await;
                     sleep(Duration::from_secs(600)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        if let Err(err) = shared.check_api_page_update().await {
-                            error!("while checking api page update: {}", err);
-                        };
-                    }
+                    if let Err(err) = bot.check_api_page_update().await {
+                        error!("while checking api page update: {}", err);
+                    };
                     sleep(Duration::from_secs(600)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        if let Err(err) = shared.check_omi_page_update().await {
-                            error!("while checking omi page update: {}", err);
-                        };
-                    }
+                    if let Err(err) = bot.check_omi_page_update().await {
+                        error!("while checking omi page update: {}", err);
+                    };
                     sleep(Duration::from_secs(600)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
+            let mut bot = self.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        if let Err(err) = shared.check_feeds().await {
-                            error!("while checking feeds: {}", err);
-                        };
-                    }
+                    if let Err(err) = bot.check_feeds().await {
+                        error!("while checking feeds: {}", err);
+                    };
                     sleep(Duration::from_secs(3600)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
-            let wb = webex_agent.clone();
+            let mut bot = self.clone();
+            let webex = self.webex_agent.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        if let Err(err) = shared.github.check_specific_github_release(&wb).await {
-                            error!("while checking specific github release: {}", err);
-                        };
+                    if let Err(err) = bot.github.check_specific_github_release(&webex).await {
+                        error!("while checking specific github release: {}", err);
                     }
                     sleep(Duration::from_secs(600)).await;
                 }
             }));
 
-            let sb = shared_bot.clone();
-            let wb = webex_agent.clone();
+            let mut bot = self.clone();
+            let webex = self.webex_agent.clone();
             tasks.spawn(tokio::spawn(async move {
                 loop {
-                    {
-                        let mut shared = sb.write().await;
-                        if let Err(err) = shared.github.check_github_release(&wb).await {
-                            error!("while checking github release: {}", err);
-                        };
-                    }
+                    if let Err(err) = bot.github.check_github_release(&webex).await {
+                        error!("while checking github release: {}", err);
+                    };
                     sleep(Duration::from_secs(600)).await;
                 }
             }));
