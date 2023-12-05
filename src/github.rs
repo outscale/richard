@@ -73,6 +73,7 @@ impl Github {
             let resp = match agent
                 .get(&url)
                 .header("Authorization", &format!("token {}", self.token))
+                .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
                 .form(&params)
                 .send()
@@ -81,7 +82,7 @@ impl Github {
                 Ok(res) => res,
                 Err(e) => {
                     error!("error: cannot listing all repo for {}: {}", org_name, e);
-                    return None;
+                    break
                 }
             };
 
@@ -89,14 +90,15 @@ impl Github {
                 Ok(body) => body,
                 Err(e) => {
                     error!("cannot get text: {:#?}", e);
-                    return None;
+                    break
                 }
             };
 
             let mut json: Vec<Repo> = match serde_json::from_str(&body) {
                 Err(e) => {
                     error!("cannot deserializing all repo for {}: {}", org_name, e);
-                    return None;
+                    trace!("cannot deserializing all repo. Body: {}", body);
+                    break;
                 }
                 Ok(body) => body,
             };
@@ -111,7 +113,7 @@ impl Github {
 
             page += 1;
         }
-
+        trace!("get_all_repos from {}: {} found", org_name, results.len());
         Some(results)
     }
 
@@ -143,6 +145,7 @@ impl Github {
         let req = match agent
             .post(&url)
             .header("Authorization", &format!("Bearer {}", self.token))
+            .header("User-Agent", "richard/0.0.0")
             .header("Accept", "application/vnd.github+json")
             .body(json_body)
             .send()
@@ -190,6 +193,7 @@ impl Github {
             let resp = match agent
                 .get(&url)
                 .header("Authorization", &format!("token {}", self.token))
+                .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
                 .form(&params)
                 .send()
@@ -198,7 +202,7 @@ impl Github {
                 Ok(res) => res,
                 Err(e) => {
                     error!("error: cannot listing all repo for {}: {}", org_name, e);
-                    return None;
+                    break;
                 }
             };
 
@@ -206,14 +210,14 @@ impl Github {
                 Ok(body) => body,
                 Err(e) => {
                     error!("cannot get text: {:#?}", e);
-                    return None;
+                    break;
                 }
             };
 
             let json: Vec<Repo> = match serde_json::from_str(&body) {
                 Err(e) => {
                     error!("cannot deserializing all repo for {}: {}", org_name, e);
-                    return None;
+                    trace!("cannot deserializing all repo. Body: {}", body);                    break;
                 }
                 Ok(body) => body,
             };
@@ -234,7 +238,7 @@ impl Github {
 
             page += 1;
         }
-
+        trace!("get_specific_repos: found {} repos", results.len());
         Some(results)
     }
     pub async fn describe_release(&mut self, m: WebexMessage, bot: Bot) {
@@ -281,6 +285,7 @@ impl Github {
             let resp = match agent
                 .get(&url)
                 .header("Authorization", &format!("token {}", self.token))
+                .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
                 .form(&params)
                 .send()
