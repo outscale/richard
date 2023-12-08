@@ -295,61 +295,7 @@ impl Github {
         }
         Some(results)
     }
-    // retrieve github body
-    pub async fn get_github_release_body(
-        &mut self,
-        org_specific_name: &str,
-        repo_specific_name: &str,
-        version: &str,
-    ) -> Option<String> {
-        lazy_static! {
-            static ref REG_SEMANTIC_VERSION: Regex =
-                Regex::new(r"^v\d{1,2}.\d{1,2}.\d{1,2}$").unwrap();
-        }
-        match REG_SEMANTIC_VERSION.is_match(version) {
-            true => trace!("{} has good format", version),
-            false => {
-                error!("{} has bad format", version);
-                return None;
-            }
-        }
-        let repo_specific_names = vec![repo_specific_name.to_string()];
 
-        let repos = match self
-            .get_specific_repos(org_specific_name, &repo_specific_names)
-            .await
-        {
-            Some(value) => value,
-            None => Vec::new(),
-        };
-        let mut release_body = "".to_string();
-        for repo in repos {
-            if repo.is_not_maintained() {
-                continue;
-            }
-            trace!(
-                "retrieving latest release for {}/{}",
-                org_specific_name,
-                repo.name
-            );
-            let name = &repo.full_name;
-            match self.get_releases(name).await {
-                None => {
-                    if self.releases.get(name).is_some() {
-                        continue;
-                    }
-                }
-                Some(releases) => {
-                    for release in releases {
-                        if release.name == version {
-                            release_body = release.body.to_owned();
-                        }
-                    }
-                }
-            }
-        }
-        Some(release_body)
-    }
     pub async fn check_specific_github_release(
         &mut self,
         webex_agent: &WebexAgent,
@@ -611,24 +557,6 @@ mod test {
             None => "".to_string(),
         };
         assert_eq!(trigger, "Trigger has been launched".to_string())
-    }
-    #[test]
-    // check to retrieve body
-    fn get_release_body() {
-        let org_specific_name = "outscale";
-        let repo_specific_name = "cluster-api-provider-outscale";
-        let version = "v0.1.0";
-        let github_token = load_env("GITHUB_TOKEN");
-        let mut github = Github::new(github_token.unwrap_or_default());
-        let release_body = match block_on(github.get_github_release_body(
-            org_specific_name,
-            repo_specific_name,
-            version,
-        )) {
-            Some(release_body) => release_body,
-            None => "no body".to_string(),
-        };
-        assert!(release_body.contains("Documentation"));
     }
 }
 
