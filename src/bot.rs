@@ -171,8 +171,6 @@ impl Bot {
                         self.respond_status(&m.id).await;
                     } else if m.text.contains("roll") {
                         self.action_roll(&m).await;
-                    } else if m.text.contains("describe") {
-                        self.github.describe_release(m, self.clone()).await
                     } else {
                         let mut ollama = Ollama::default();
                         match ollama.query(&m.text).await {

@@ -1,9 +1,6 @@
 use crate::bot::request_agent;
 use crate::webex;
-use crate::{
-    webex::{WebexAgent, WebexMessage},
-    Bot,
-};
+use crate::webex::WebexAgent;
 use lazy_static::lazy_static;
 use log::trace;
 use log::{error, info};
@@ -22,8 +19,6 @@ static GITHUB_SPECIFIC_ORG_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_SPECIFIC_REPO_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_ORG_NAME_TRIGGER: &str = "outscale";
 static GITHUB_REPO_NAME_TRIGGER: &str = "cluster-api-provider-outscale";
-static GITHUB_REPO_NAME_WITH_CHANGELOG: &str = "kubernetes";
-static GITHUB_URL_WITH_CHANGELOG: &str = "https://relnotes.k8s.io/?releaseVersions=";
 #[derive(Clone, Debug)]
 pub struct Github {
     pub token: String,
@@ -81,7 +76,7 @@ impl Github {
                 Ok(res) => res,
                 Err(e) => {
                     error!("error: cannot listing all repo for {}: {}", org_name, e);
-                    break
+                    break;
                 }
             };
 
@@ -89,7 +84,7 @@ impl Github {
                 Ok(body) => body,
                 Err(e) => {
                     error!("cannot get text: {:#?}", e);
-                    break
+                    break;
                 }
             };
 
@@ -216,7 +211,8 @@ impl Github {
             let json: Vec<Repo> = match serde_json::from_str(&body) {
                 Err(e) => {
                     error!("cannot deserializing all repo for {}: {}", org_name, e);
-                    trace!("cannot deserializing all repo. Body: {}", body);                    break;
+                    trace!("cannot deserializing all repo. Body: {}", body);
+                    break;
                 }
                 Ok(body) => body,
             };
@@ -241,39 +237,6 @@ impl Github {
         Some(results)
     }
 
-    pub async fn describe_release(&mut self, m: WebexMessage, bot: Bot) {
-        let mut message = m.text.split_whitespace();
-        let message_id = m.id;
-        if message.next() != Some("describe") {
-            bot.respond(
-                &message_id,
-                "bad format: describe org_name repo_name version",
-            )
-            .await;
-            return;
-        }
-        let Some(org_specific_name) = message.next() else {
-            return;
-        };
-        let Some(repo_specific_name) = message.next() else {
-            return;
-        };
-        let Some(version) = message.next() else {
-            return;
-        };
-        if repo_specific_name != GITHUB_REPO_NAME_WITH_CHANGELOG {
-            let Some(release_body) = self
-                .get_github_release_body(org_specific_name, repo_specific_name, version)
-                .await
-            else {
-                return;
-            };
-            bot.respond(&message_id, release_body).await;
-        } else {
-            let version_url = GITHUB_URL_WITH_CHANGELOG.to_owned() + version;
-            bot.respond(&message_id, version_url).await;
-        }
-    }
     pub async fn get_releases(&self, repo_name: &str) -> Option<Vec<Release>> {
         let Ok(agent) = request_agent() else {
             return None;
