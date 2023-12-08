@@ -8,7 +8,6 @@ use lazy_static::lazy_static;
 use log::trace;
 use log::{error, info};
 use regex::Regex;
-use std::process::exit;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::{Hash, Hasher},
@@ -241,6 +240,7 @@ impl Github {
         trace!("get_specific_repos: found {} repos", results.len());
         Some(results)
     }
+
     pub async fn describe_release(&mut self, m: WebexMessage, bot: Bot) {
         let mut message = m.text.split_whitespace();
         let message_id = m.id;
@@ -250,10 +250,17 @@ impl Github {
                 "bad format: describe org_name repo_name version",
             )
             .await;
+            return;
         }
-        let org_specific_name = message.next().unwrap_or_else(|| exit(1));
-        let repo_specific_name = message.next().unwrap_or_else(|| exit(1));
-        let version = message.next().unwrap_or_else(|| exit(1));
+        let Some(org_specific_name) = message.next() else {
+            return;
+        };
+        let Some(repo_specific_name) = message.next() else {
+            return;
+        };
+        let Some(version) = message.next() else {
+            return;
+        };
         if repo_specific_name != GITHUB_REPO_NAME_WITH_CHANGELOG {
             let Some(release_body) = self
                 .get_github_release_body(org_specific_name, repo_specific_name, version)
@@ -339,8 +346,8 @@ impl Github {
         match REG_SEMANTIC_VERSION.is_match(version) {
             true => trace!("{} has good format", version),
             false => {
-                trace!("{} has bad format", version);
-                exit(1);
+                error!("{} has bad format", version);
+                return None;
             }
         }
         let repo_specific_names = vec![repo_specific_name.to_string()];
@@ -476,7 +483,7 @@ impl Github {
                     true => trace!("{} has good format", value),
                     false => {
                         trace!("{} has bad format", value);
-                        exit(1);
+                        continue;
                     }
                 }
 
