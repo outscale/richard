@@ -5,17 +5,47 @@ use std::env::VarError;
 use tokio::time::sleep;
 use tokio::time::Duration;
 
+use lazy_static::lazy_static;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
 static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
 static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
 
+pub async fn run() {
+    MODULE.write().await.run().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Webpages>> = init();
+}
+
+fn init() -> Arc<RwLock<Webpages>> {
+    match Webpages::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
 #[derive(Clone)]
-pub struct Webpages {
+struct Webpages {
     pages: Vec<Webpage>,
     webex: WebexAgent,
 }
 
 impl Webpages {
-    pub fn new() -> Result<Self, VarError> {
+    fn new() -> Result<Self, VarError> {
         let webpages = Webpages {
             // TODO: set by env var listing
             pages: vec![
@@ -27,12 +57,14 @@ impl Webpages {
         Ok(webpages)
     }
 
-    pub async fn run(&mut self) {
+    async fn run(&mut self) {
         loop {
             self.check_pages().await;
             sleep(Duration::from_secs(600)).await;
         }
     }
+
+    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
 
     async fn check_pages(&mut self) {
         for page in self.pages.iter_mut() {

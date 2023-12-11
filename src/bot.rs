@@ -7,7 +7,7 @@ use crate::ollama;
 use crate::ping;
 use crate::roll;
 use crate::webex::WebexAgent;
-use crate::webpages::Webpages;
+use crate::webpages;
 use log::{debug, error, info};
 use std::env::VarError;
 use std::error::Error;
@@ -20,7 +20,6 @@ pub struct Bot {
     webex: WebexAgent,
     github: Github,
     feeds: Feeds,
-    webpages: Webpages,
 }
 
 impl Bot {
@@ -29,7 +28,6 @@ impl Bot {
             webex: WebexAgent::new()?,
             github: Github::new()?,
             feeds: Feeds::new()?,
-            webpages: Webpages::new()?,
         })
     }
 
@@ -49,6 +47,7 @@ impl Bot {
                     help::run_trigger(&m.text, &m.id).await;
                     ollama::run_trigger(&m.text, &m.id).await;
                     hello::run_trigger(&m.text, &m.id).await;
+                    webpages::run_trigger(&m.text, &m.id).await;
                 }
             }
             Err(e) => error!("reading messages: {}", e),
@@ -81,10 +80,8 @@ impl Bot {
         tasks.spawn(tokio::spawn(async move {
             hello::run().await;
         }));
-
-        let mut bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
-            bot.webpages.run().await;
+            webpages::run().await;
         }));
 
         let mut bot = self.clone();
