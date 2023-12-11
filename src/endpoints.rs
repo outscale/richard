@@ -10,16 +10,55 @@ use std::error::Error;
 use tokio::time::sleep;
 use tokio::time::Duration;
 
+use lazy_static::lazy_static;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
 const HIGH_ERROR_RATE: f32 = 0.1;
 
+pub async fn run_version() {
+    MODULE.write().await.run_version().await;
+}
+
+pub async fn run_error_rate() {
+    MODULE.write().await.run_error_rate().await;
+}
+
+pub async fn run_alive() {
+    MODULE.write().await.run_alive().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Endpoints>> = init();
+}
+
+fn init() -> Arc<RwLock<Endpoints>> {
+    match Endpoints::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct Endpoints {
+struct Endpoints {
     endpoints: Vec<Endpoint>,
     webex: WebexAgent,
 }
 
 impl Endpoints {
-    pub fn new() -> Result<Endpoints, VarError> {
+    fn new() -> Result<Endpoints, VarError> {
         let mut endpoints = Endpoints {
             endpoints: Vec::new(),
             webex: WebexAgent::new()?,
@@ -39,7 +78,7 @@ impl Endpoints {
         Ok(endpoints)
     }
 
-    pub async fn run_version(&mut self) {
+    async fn run_version(&mut self) {
         loop {
             let mut messages = Vec::<String>::new();
             for endpoint in self.endpoints.iter_mut() {
@@ -53,7 +92,7 @@ impl Endpoints {
         }
     }
 
-    pub async fn run_error_rate(&mut self) {
+    async fn run_error_rate(&mut self) {
         loop {
             for endpoint in self.endpoints.iter_mut() {
                 if let Some(error_rate) = endpoint.update_error_rate().await {
@@ -70,7 +109,7 @@ impl Endpoints {
         }
     }
 
-    pub async fn run_alive(&mut self) {
+    async fn run_alive(&mut self) {
         loop {
             let mut messages = Vec::<String>::new();
             for endpoint in self.endpoints.iter_mut() {
@@ -83,7 +122,7 @@ impl Endpoints {
         }
     }
 
-    pub async fn run_trigger(&mut self, message: &str, parent_message: &str) {
+    async fn run_trigger(&mut self, message: &str, parent_message: &str) {
         if !message.contains("status") {
             return;
         }
@@ -104,7 +143,7 @@ impl Endpoints {
 }
 
 #[derive(Clone, Debug)]
-pub enum EndpointError {
+enum EndpointError {
     AgentInit(String),
     Code(u16),
     Transport(String),
@@ -137,15 +176,15 @@ struct VersionResponse {
 }
 #[derive(Clone)]
 struct Endpoint {
-    pub name: String,
-    pub endpoint: String,
-    pub version: Option<String>,
-    pub alive: bool,
-    pub access_failure_cnt: u8,
-    pub last_error: Option<EndpointError>,
-    pub error_rate_acc: f32,
-    pub error_rate_cnt: u32,
-    pub error_rate: f32,
+    name: String,
+    endpoint: String,
+    version: Option<String>,
+    alive: bool,
+    access_failure_cnt: u8,
+    last_error: Option<EndpointError>,
+    error_rate_acc: f32,
+    error_rate_cnt: u32,
+    error_rate: f32,
 }
 
 impl Endpoint {
