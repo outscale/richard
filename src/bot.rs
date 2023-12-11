@@ -4,7 +4,7 @@ use crate::github::Github;
 use crate::hello::Hello;
 use crate::help;
 use crate::ollama::Ollama;
-use crate::ping::Ping;
+use crate::ping;
 use crate::roll;
 use crate::webex::WebexAgent;
 use crate::webpages::Webpages;
@@ -23,7 +23,6 @@ pub struct Bot {
     github: Github,
     feeds: Feeds,
     webpages: Webpages,
-    ping: Ping,
     ollama: Ollama,
 }
 
@@ -36,7 +35,6 @@ impl Bot {
             github: Github::new()?,
             feeds: Feeds::new()?,
             webpages: Webpages::new()?,
-            ping: Ping::new()?,
             ollama: Ollama::new()?,
         })
     }
@@ -53,7 +51,7 @@ impl Bot {
                     info!("received message: {}", m.text);
                     self.endpoints.run_trigger(&m.text, &m.id).await;
                     roll::run_trigger(&m.text, &m.id).await;
-                    self.ping.run_trigger(&m.text, &m.id).await;
+                    ping::run_trigger(&m.text, &m.id).await;
                     help::run_trigger(&m.text, &m.id).await;
                     self.ollama.run_trigger(&m.text, &m.id).await;
                 }
@@ -69,6 +67,9 @@ impl Bot {
         }));
         tasks.spawn(tokio::spawn(async move {
             roll::run().await;
+        }));
+        tasks.spawn(tokio::spawn(async move {
+            ping::run().await;
         }));
 
         let mut bot = self.clone();
