@@ -9,14 +9,45 @@ use std::error::Error;
 use tokio::time::sleep;
 use tokio::time::Duration;
 
+use lazy_static::lazy_static;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+pub async fn run() {
+    MODULE.write().await.run().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Feeds>> = init();
+}
+
+fn init() -> Arc<RwLock<Feeds>> {
+    match Feeds::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct Feeds {
+struct Feeds {
     feeds: Vec<Feed>,
     webex: WebexAgent,
 }
 
 impl Feeds {
-    pub fn new() -> Result<Feeds, VarError> {
+    fn new() -> Result<Feeds, VarError> {
         let mut feeds = Feeds {
             feeds: Vec::new(),
             webex: WebexAgent::new()?,
@@ -35,12 +66,14 @@ impl Feeds {
         Ok(feeds)
     }
 
-    pub async fn run(&mut self) {
+    async fn run(&mut self) {
         loop {
             self.check_feeds().await;
             sleep(Duration::from_secs(3600)).await;
         }
     }
+
+    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
 
     async fn check_feeds(&mut self) {
         let mut messages: Vec<String> = Vec::new();
@@ -64,7 +97,7 @@ impl Feeds {
 }
 
 #[derive(Clone)]
-pub struct Feed {
+struct Feed {
     pub name: String,
     pub url: String,
     pub latest: Option<model::Entry>,
@@ -122,7 +155,7 @@ impl Feed {
         Some(entry.clone())
     }
 
-    pub fn announce(&self) -> Option<String> {
+    fn announce(&self) -> Option<String> {
         let entry = self.latest.clone()?;
         let title = entry.title.map(|title| title.content);
         let url = entry.links.first().map(|link| link.href.clone());

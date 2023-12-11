@@ -12,6 +12,9 @@ use std::{
 pub type ReleaseHash = u64;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tokio::time::Duration;
 
@@ -21,15 +24,42 @@ static GITHUB_SPECIFIC_ORG_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_SPECIFIC_REPO_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_ORG_NAME_TRIGGER: &str = "outscale";
 static GITHUB_REPO_NAME_TRIGGER: &str = "cluster-api-provider-outscale";
+
+pub async fn run() {
+    MODULE.write().await.run().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Github>> = init();
+}
+
+fn init() -> Arc<RwLock<Github>> {
+    match Github::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct Github {
+struct Github {
     webex: WebexAgent,
     token: String,
     releases: HashMap<String, Option<HashSet<ReleaseHash>>>,
 }
 
 impl Github {
-    pub fn new() -> Result<Self, VarError> {
+    fn new() -> Result<Self, VarError> {
         let token = env::var("GITHUB_TOKEN")?;
         Ok(Github {
             webex: WebexAgent::new()?,
@@ -38,13 +68,15 @@ impl Github {
         })
     }
 
-    pub async fn run(&mut self) {
+    async fn run(&mut self) {
         loop {
             self.check_specific_github_release().await;
             self.check_github_release().await;
             sleep(Duration::from_secs(600)).await;
         }
     }
+
+    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
 
     async fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
         let Ok(agent) = request_agent() else {
@@ -477,7 +509,7 @@ impl Github {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Repo {
+struct Repo {
     pub name: String,
     pub full_name: String,
     archived: bool,
@@ -485,7 +517,7 @@ pub struct Repo {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
-pub struct Release {
+struct Release {
     html_url: String,
     pub tag_name: String,
     pub name: String,
