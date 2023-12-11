@@ -50,9 +50,6 @@ pub async fn run() {
         github::run().await;
     }));
     tasks.spawn(tokio::spawn(async move {
-        github::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
         triggers::run().await;
     }));
 
