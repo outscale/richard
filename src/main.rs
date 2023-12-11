@@ -1,7 +1,7 @@
 /* Copyright Outscale SAS */
 
 mod bot;
-mod feed;
+mod feeds;
 mod github;
 mod hello;
 mod ollama;

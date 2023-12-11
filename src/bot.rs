@@ -1,4 +1,4 @@
-use crate::feed::Feed;
+use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
 use crate::ollama::Ollama;
@@ -33,7 +33,7 @@ pub struct Bot {
     omi_page: Option<String>,
     hello: Hello,
     github: Github,
-    feeds: Vec<Feed>,
+    feeds: Feeds,
 }
 
 impl Bot {
@@ -45,7 +45,7 @@ impl Bot {
             omi_page: None,
             hello: Hello::new()?,
             github: Github::new()?,
-            feeds: Bot::load_feeds(),
+            feeds: Feeds::new()?,
         })
     }
 
@@ -64,22 +64,6 @@ impl Bot {
             }
         }
         endpoints
-    }
-
-    pub fn load_feeds() -> Vec<Feed> {
-        let mut feeds = Vec::new();
-        for i in 0..100 {
-            let name = env::var(&format!("FEED_{}_NAME", i));
-            let url = env::var(&format!("FEED_{}_URL", i));
-            match (name, url) {
-                (Ok(name), Ok(url)) => {
-                    info!("feed configured: {} ({}), ", name, url);
-                    feeds.push(Feed::new(name, url));
-                }
-                _ => break,
-            }
-        }
-        feeds
     }
 
     pub async fn check(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -236,27 +220,6 @@ impl Bot {
         Ok(())
     }
 
-    pub async fn check_feeds(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut messages: Vec<String> = Vec::new();
-        for feed in &mut self.feeds {
-            if feed.update().await {
-                if let Some(announce) = feed.announce() {
-                    messages.push(announce);
-                }
-            }
-        }
-        if messages.is_empty() {
-            info!("no new feed entry");
-            return Ok(());
-        } else {
-            info!("we have {} new feed entries", messages.len());
-        }
-        for msg in messages {
-            self.say(msg, true).await;
-        }
-        Ok(())
-    }
-
     pub async fn run(self) {
         let mut tasks = JoinSet::new();
         let mut bot = self.clone();
@@ -318,12 +281,7 @@ impl Bot {
 
         let mut bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
-            loop {
-                if let Err(err) = bot.check_feeds().await {
-                    error!("while checking feeds: {}", err);
-                };
-                sleep(Duration::from_secs(3600)).await;
-            }
+            bot.feeds.run().await;
         }));
 
         let mut bot = self.clone();

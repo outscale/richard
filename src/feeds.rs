@@ -1,9 +1,67 @@
 use crate::bot::request_agent;
+use crate::webex::WebexAgent;
 use feed_rs::model;
 use feed_rs::parser::parse;
 use log::{error, info};
 use std::cmp::Ordering;
+use std::env::{self, VarError};
 use std::error::Error;
+use tokio::time::sleep;
+use tokio::time::Duration;
+
+#[derive(Clone)]
+pub struct Feeds {
+    feeds: Vec<Feed>,
+    webex: WebexAgent,
+}
+
+impl Feeds {
+    pub fn new() -> Result<Feeds, VarError> {
+        let mut feeds = Feeds {
+            feeds: Vec::new(),
+            webex: WebexAgent::new()?,
+        };
+        for i in 0..100 {
+            let name = env::var(&format!("FEED_{}_NAME", i));
+            let url = env::var(&format!("FEED_{}_URL", i));
+            match (name, url) {
+                (Ok(name), Ok(url)) => {
+                    info!("feed configured: {} ({}), ", name, url);
+                    feeds.feeds.push(Feed::new(name, url));
+                }
+                _ => break,
+            }
+        }
+        Ok(feeds)
+    }
+
+    pub async fn run(&mut self) {
+        loop {
+            self.check_feeds().await;
+            sleep(Duration::from_secs(3600)).await;
+        }
+    }
+
+    async fn check_feeds(&mut self) {
+        let mut messages: Vec<String> = Vec::new();
+        for feed in &mut self.feeds {
+            if feed.update().await {
+                if let Some(announce) = feed.announce() {
+                    messages.push(announce);
+                }
+            }
+        }
+        if messages.is_empty() {
+            info!("no new feed entry");
+            return;
+        } else {
+            info!("we have {} new feed entries", messages.len());
+        }
+        for msg in messages {
+            self.webex.say(msg).await;
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Feed {
