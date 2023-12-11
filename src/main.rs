@@ -1,11 +1,11 @@
 /* Copyright Outscale SAS */
 
 mod bot;
+mod endpoints;
 mod feeds;
 mod github;
 mod hello;
 mod ollama;
-mod osc;
 mod roll;
 mod utils;
 mod webex;

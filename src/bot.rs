@@ -1,8 +1,8 @@
+use crate::endpoints::Endpoint;
 use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
 use crate::ollama::Ollama;
-use crate::osc;
 use crate::roll;
 use crate::webex;
 use crate::webpages::Webpages;
@@ -18,7 +18,7 @@ const HIGH_ERROR_RATE: f32 = 0.1;
 #[derive(Clone)]
 pub struct Bot {
     webex_agent: webex::WebexAgent,
-    endpoints: Vec<osc::Endpoint>,
+    endpoints: Vec<Endpoint>,
     hello: Hello,
     github: Github,
     feeds: Feeds,
@@ -37,7 +37,7 @@ impl Bot {
         })
     }
 
-    pub fn load_endpoints() -> Vec<osc::Endpoint> {
+    pub fn load_endpoints() -> Vec<Endpoint> {
         let mut endpoints = Vec::new();
         for i in 0..100 {
             let name = env::var(&format!("REGION_{}_NAME", i));
@@ -45,7 +45,7 @@ impl Bot {
             match (name, endpoint) {
                 (Ok(name), Ok(endpoint)) => {
                     info!("endpoint {} configured", name);
-                    let new = osc::Endpoint::new(name, endpoint);
+                    let new = Endpoint::new(name, endpoint);
                     endpoints.push(new);
                 }
                 _ => break,
