@@ -26,6 +26,7 @@ pub struct Bot {
     roll: Roll,
     ping: Ping,
     help: Help,
+    ollama: Ollama,
 }
 
 impl Bot {
@@ -40,6 +41,7 @@ impl Bot {
             roll: Roll::new()?,
             ping: Ping::new()?,
             help: Help::new()?,
+            ollama: Ollama::new()?,
         })
     }
 
@@ -57,12 +59,7 @@ impl Bot {
                     self.roll.run_trigger(&m.text, &m.id).await;
                     self.ping.run_trigger(&m.text, &m.id).await;
                     self.help.run_trigger(&m.text, &m.id).await;
-
-                    let mut ollama = Ollama::default();
-                    match ollama.query(&m.text).await {
-                        Ok(message) => self.webex.respond(&m.id, &message).await,
-                        Err(err) => error!("ollama responded: {:#?}", err),
-                    };
+                    self.ollama.run_trigger(&m.text, &m.id).await;
                 }
             }
             Err(e) => error!("reading messages: {}", e),
