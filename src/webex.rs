@@ -54,19 +54,25 @@ impl WebexAgent {
             .header("Authorization", &self.auth_header))
     }
 
-    pub async fn check(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn check(&self) -> bool {
         trace!("my room {} my token {}", self.room_id, self.auth_header);
         let url = format!(
             "https://webexapis.com/v1/rooms/{}/meetingInfo",
             self.room_id
         );
-        if let Err(e) = self.get(&url)?.send().await {
-            info!("checking Webex API: KO");
-            return Err(Box::new(e));
+        let get = match self.get(&url) {
+            Ok(get) => get,
+            Err(err) => {
+                error!("cannot create getter: {:#?}", err);
+                return false;
+            }
+        };
+        if let Err(err) = get.send().await {
+            error!("webex api: {:#?}", err);
+            return false;
         }
-
         info!("checking Webex API: OK");
-        Ok(())
+        true
     }
 
     pub async fn say_messages(&self, messages: Vec<String>) {
