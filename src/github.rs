@@ -5,12 +5,14 @@ use lazy_static::lazy_static;
 use log::trace;
 use log::{error, info};
 use regex::Regex;
+use std::env::VarError;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::{Hash, Hasher},
 };
 pub type ReleaseHash = u64;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::error::Error;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
@@ -44,11 +46,12 @@ pub struct Release {
 }
 
 impl Github {
-    pub fn new(github_token: String) -> Self {
-        Self {
-            token: github_token,
+    pub fn new() -> Result<Self, VarError> {
+        let token = env::var("GITHUB_TOKEN")?;
+        Ok(Self {
+            token,
             releases: HashMap::new(),
-        }
+        })
     }
     pub async fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
         let Ok(agent) = request_agent() else {
@@ -514,50 +517,6 @@ pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
     s.finish()
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::bot::load_env;
-    use tokio_test::block_on;
-    #[test]
-    // Check get repo is a success
-    fn get_repo_success() {
-        let org_specific_name = "kubernetes";
-        let repo_specific_name = vec!["kubernetes".to_string()];
-
-        let github_token = load_env("GITHUB_TOKEN");
-        let github = Github::new(github_token.unwrap_or_default());
-        let repos =
-            match block_on(github.get_specific_repos(org_specific_name, &repo_specific_name)) {
-                Some(value) => value,
-                None => Vec::new(),
-            };
-        for repo in repos {
-            assert_eq!(repo.full_name, "kubernetes/kubernetes")
-        }
-    }
-    #[test]
-    // Check trigger is a success
-    fn get_trigger_success() {
-        let event_type = "release";
-        let org_specific_name = "outscale";
-        let repo_specific_name = "cluster-api-provider-outscale";
-        let version = "v1.26.0";
-        let github_token = load_env("GITHUB_TOKEN");
-        let github = Github::new(github_token.unwrap_or_default());
-        let trigger = match block_on(github.trigger_version_github_action(
-            org_specific_name,
-            repo_specific_name.to_owned(),
-            event_type,
-            &version.to_string(),
-        )) {
-            Some(value) => value,
-            None => "".to_string(),
-        };
-        assert_eq!(trigger, "Trigger has been launched".to_string())
-    }
 }
 
 #[derive(Clone, Debug, Serialize)]

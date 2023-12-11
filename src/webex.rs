@@ -3,6 +3,8 @@ use log::{error, info, trace};
 use reqwest::RequestBuilder;
 use serde::Deserialize;
 use serde::Serialize;
+use std::env;
+use std::env::VarError;
 use std::error::Error;
 
 #[derive(Clone)]
@@ -22,12 +24,14 @@ struct WebexQuery {
 }
 
 impl WebexAgent {
-    pub fn new(token: String, room_id: String) -> WebexAgent {
-        WebexAgent {
-            auth_header: format!("Bearer {}", token),
+    pub fn new() -> Result<WebexAgent, VarError> {
+        let webex_token = env::var("WEBEX_TOKEN")?;
+        let room_id = env::var("WEBEX_ROOM_ID")?;
+        Ok(WebexAgent {
+            auth_header: format!("Bearer {}", webex_token),
             room_id,
             last_unread_message_date: None,
-        }
+        })
     }
 
     pub fn post<T: Into<String>, J: Serialize + ?Sized>(

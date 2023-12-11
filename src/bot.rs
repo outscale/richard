@@ -1,5 +1,6 @@
 use crate::feed::Feed;
 use crate::github::Github;
+use crate::hello::Hello;
 use crate::ollama::Ollama;
 use crate::osc;
 use crate::roll;
@@ -7,6 +8,7 @@ use crate::webex;
 use log::{debug, error, info, warn};
 use reqwest::Client;
 use std::env;
+use std::env::VarError;
 use std::error::Error;
 use std::time::Duration;
 use tokio::task::JoinSet;
@@ -29,21 +31,20 @@ pub struct Bot {
     endpoints: Vec<osc::Endpoint>,
     api_page: Option<String>,
     omi_page: Option<String>,
+    hello: Hello,
     github: Github,
     feeds: Vec<Feed>,
 }
 
 impl Bot {
-    pub fn load() -> Option<Self> {
-        let webex_token = load_env("WEBEX_TOKEN")?;
-        let webex_room_id = load_env("WEBEX_ROOM_ID")?;
-        let github_token = load_env("GITHUB_TOKEN")?;
-        Some(Bot {
-            webex_agent: webex::WebexAgent::new(webex_token, webex_room_id),
+    pub fn load() -> Result<Self, VarError> {
+        Ok(Bot {
+            webex_agent: webex::WebexAgent::new()?,
             endpoints: Bot::load_endpoints(),
             api_page: None,
             omi_page: None,
-            github: Github::new(github_token),
+            hello: Hello::new()?,
+            github: Github::new()?,
             feeds: Bot::load_feeds(),
         })
     }
@@ -51,10 +52,10 @@ impl Bot {
     pub fn load_endpoints() -> Vec<osc::Endpoint> {
         let mut endpoints = Vec::new();
         for i in 0..100 {
-            let name = load_env(&format!("REGION_{}_NAME", i));
-            let endpoint = load_env(&format!("REGION_{}_ENDPOINT", i));
+            let name = env::var(&format!("REGION_{}_NAME", i));
+            let endpoint = env::var(&format!("REGION_{}_ENDPOINT", i));
             match (name, endpoint) {
-                (Some(name), Some(endpoint)) => {
+                (Ok(name), Ok(endpoint)) => {
                     info!("endpoint {} configured", name);
                     let new = osc::Endpoint::new(name, endpoint);
                     endpoints.push(new);
@@ -68,10 +69,10 @@ impl Bot {
     pub fn load_feeds() -> Vec<Feed> {
         let mut feeds = Vec::new();
         for i in 0..100 {
-            let name = load_env(&format!("FEED_{}_NAME", i));
-            let url = load_env(&format!("FEED_{}_URL", i));
+            let name = env::var(&format!("FEED_{}_NAME", i));
+            let url = env::var(&format!("FEED_{}_URL", i));
             match (name, url) {
-                (Some(name), Some(url)) => {
+                (Ok(name), Ok(url)) => {
                     info!("feed configured: {} ({}), ", name, url);
                     feeds.push(Feed::new(name, url));
                 }
@@ -147,14 +148,6 @@ impl Bot {
             }
         }
         self.say_messages(messages).await;
-    }
-
-    pub async fn hello(&self) {
-        const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
-        let index = rand::random::<usize>() % RMS_QUOTES.len();
-        if let Some(quote) = RMS_QUOTES.get(index) {
-            self.say(quote.to_string(), false).await;
-        }
     }
 
     pub async fn actions(&mut self) {
@@ -284,11 +277,7 @@ impl Bot {
 
         let bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
-            let day_s = 24 * 60 * 60;
-            loop {
-                sleep(Duration::from_secs(7 * day_s)).await;
-                bot.hello().await;
-            }
+            bot.hello.run().await;
         }));
 
         let mut bot = self.clone();
@@ -365,20 +354,4 @@ impl Bot {
             sleep(Duration::from_secs(1)).await;
         }
     }
-}
-
-pub fn load_env(env_name: &str) -> Option<String> {
-    let value = match env::var(env_name) {
-        Ok(v) => v,
-        Err(e) => {
-            debug!("{}: {}", env_name, e);
-            return None;
-        }
-    };
-    if value.is_empty() {
-        debug!("{} seems empty", env_name);
-        return None;
-    }
-    debug!("{} is set", env_name);
-    Some(value)
 }

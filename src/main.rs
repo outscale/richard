@@ -3,6 +3,7 @@
 mod bot;
 mod feed;
 mod github;
+mod hello;
 mod ollama;
 mod osc;
 mod roll;
@@ -16,9 +17,9 @@ use std::process::exit;
 pub async fn main() {
     env_logger::init();
     let bot = match Bot::load() {
-        Some(b) => b,
-        None => {
-            error!("bot requirements are not met. exiting.");
+        Ok(b) => b,
+        Err(err) => {
+            error!("bot requirements are not met. Missing var {}", err);
             exit(1);
         }
     };
