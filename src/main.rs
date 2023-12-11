@@ -6,6 +6,7 @@ mod feeds;
 mod github;
 mod hello;
 mod ollama;
+mod ping;
 mod roll;
 mod utils;
 mod webex;

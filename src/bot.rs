@@ -3,6 +3,7 @@ use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
 use crate::ollama::Ollama;
+use crate::ping::Ping;
 use crate::roll::Roll;
 use crate::webex::WebexAgent;
 use crate::webpages::Webpages;
@@ -22,6 +23,7 @@ pub struct Bot {
     feeds: Feeds,
     webpages: Webpages,
     roll: Roll,
+    ping: Ping,
 }
 
 impl Bot {
@@ -34,6 +36,7 @@ impl Bot {
             feeds: Feeds::new()?,
             webpages: Webpages::new()?,
             roll: Roll::new()?,
+            ping: Ping::new()?,
         })
     }
 
@@ -49,13 +52,12 @@ impl Bot {
                     info!("received message: {}", m.text);
                     self.endpoints.run_trigger(&m.text, &m.id).await;
                     self.roll.run_trigger(&m.text, &m.id).await;
+                    self.ping.run_trigger(&m.text, &m.id).await;
 
                     if m.text.contains("help") {
                         self.webex
                             .respond(&m.id, "available commands are: ping, status, roll, help")
                             .await;
-                    } else if m.text.contains("ping") {
-                        self.webex.respond(&m.id, "pong").await;
                     } else {
                         let mut ollama = Ollama::default();
                         match ollama.query(&m.text).await {
