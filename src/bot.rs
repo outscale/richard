@@ -2,7 +2,7 @@ use crate::endpoints::Endpoints;
 use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
-use crate::help::Help;
+use crate::help;
 use crate::ollama::Ollama;
 use crate::ping::Ping;
 use crate::roll::Roll;
@@ -25,7 +25,6 @@ pub struct Bot {
     webpages: Webpages,
     roll: Roll,
     ping: Ping,
-    help: Help,
     ollama: Ollama,
 }
 
@@ -40,7 +39,6 @@ impl Bot {
             webpages: Webpages::new()?,
             roll: Roll::new()?,
             ping: Ping::new()?,
-            help: Help::new()?,
             ollama: Ollama::new()?,
         })
     }
@@ -58,7 +56,7 @@ impl Bot {
                     self.endpoints.run_trigger(&m.text, &m.id).await;
                     self.roll.run_trigger(&m.text, &m.id).await;
                     self.ping.run_trigger(&m.text, &m.id).await;
-                    self.help.run_trigger(&m.text, &m.id).await;
+                    help::run_trigger(&m.text, &m.id).await;
                     self.ollama.run_trigger(&m.text, &m.id).await;
                 }
             }
@@ -68,6 +66,10 @@ impl Bot {
 
     pub async fn run(self) {
         let mut tasks = JoinSet::new();
+        tasks.spawn(tokio::spawn(async move {
+            help::run().await;
+        }));
+
         let mut bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
             bot.endpoints.run_version().await;

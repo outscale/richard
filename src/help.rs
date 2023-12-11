@@ -1,5 +1,37 @@
+use lazy_static::lazy_static;
+
 use crate::webex::WebexAgent;
+use log::error;
 use std::env::VarError;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+pub async fn run() {
+    MODULE.write().await.run().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Help>> = init();
+}
+
+fn init() -> Arc<RwLock<Help>> {
+    match Help::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Help {
@@ -7,13 +39,15 @@ pub struct Help {
 }
 
 impl Help {
-    pub fn new() -> Result<Self, VarError> {
+    fn new() -> Result<Self, VarError> {
         Ok(Help {
             webex: WebexAgent::new()?,
         })
     }
 
-    pub async fn run_trigger(&mut self, message: &str, parent_message: &str) {
+    async fn run(&self) {}
+
+    async fn run_trigger(&mut self, message: &str, parent_message: &str) {
         if !message.contains("help") {
             return;
         }
