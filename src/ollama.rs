@@ -82,6 +82,13 @@ impl Ollama {
     }
 
     pub async fn run_trigger(&mut self, message: &str, parent_message: &str) {
+        let keywords = vec!["status", "help", "ping", "roll"];
+        for keyword in keywords {
+            if message.contains(keyword) {
+                return;
+            }
+        }
+
         match self.query(message).await {
             Ok(message) => self.webex.respond(parent_message, &message).await,
             Err(err) => error!("ollama responded: {:#?}", err),
