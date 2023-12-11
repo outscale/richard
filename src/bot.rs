@@ -5,7 +5,7 @@ use crate::hello::Hello;
 use crate::help;
 use crate::ollama::Ollama;
 use crate::ping::Ping;
-use crate::roll::Roll;
+use crate::roll;
 use crate::webex::WebexAgent;
 use crate::webpages::Webpages;
 use log::{debug, error, info};
@@ -23,7 +23,6 @@ pub struct Bot {
     github: Github,
     feeds: Feeds,
     webpages: Webpages,
-    roll: Roll,
     ping: Ping,
     ollama: Ollama,
 }
@@ -37,7 +36,6 @@ impl Bot {
             github: Github::new()?,
             feeds: Feeds::new()?,
             webpages: Webpages::new()?,
-            roll: Roll::new()?,
             ping: Ping::new()?,
             ollama: Ollama::new()?,
         })
@@ -54,7 +52,7 @@ impl Bot {
                 for m in messages.items {
                     info!("received message: {}", m.text);
                     self.endpoints.run_trigger(&m.text, &m.id).await;
-                    self.roll.run_trigger(&m.text, &m.id).await;
+                    roll::run_trigger(&m.text, &m.id).await;
                     self.ping.run_trigger(&m.text, &m.id).await;
                     help::run_trigger(&m.text, &m.id).await;
                     self.ollama.run_trigger(&m.text, &m.id).await;
@@ -68,6 +66,9 @@ impl Bot {
         let mut tasks = JoinSet::new();
         tasks.spawn(tokio::spawn(async move {
             help::run().await;
+        }));
+        tasks.spawn(tokio::spawn(async move {
+            roll::run().await;
         }));
 
         let mut bot = self.clone();

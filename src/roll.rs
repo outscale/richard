@@ -5,19 +5,53 @@ use rand::Rng;
 
 use crate::webex::WebexAgent;
 
+use lazy_static::lazy_static;
+use log::error;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+pub async fn run() {
+    MODULE.write().await.run().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Roll>> = init();
+}
+
+fn init() -> Arc<RwLock<Roll>> {
+    match Roll::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Roll {
     webex: WebexAgent,
 }
 
 impl Roll {
-    pub fn new() -> Result<Self, VarError> {
+    fn new() -> Result<Self, VarError> {
         Ok(Roll {
             webex: WebexAgent::new()?,
         })
     }
 
-    pub async fn run_trigger(&mut self, message: &str, parent_message: &str) {
+    async fn run(&self) {}
+
+    async fn run_trigger(&mut self, message: &str, parent_message: &str) {
         if !message.contains("roll") {
             return;
         }
