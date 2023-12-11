@@ -340,7 +340,7 @@ impl Github {
                                 if release.is_not_official() {
                                     continue;
                                 }
-                                let release_hash = calculate_hash(&release);
+                                let release_hash = calculate_hash(&release.name);
                                 trace!("Release {:?} Hash {}", &release, &release_hash);
                                 release_hashs.insert(release_hash);
                             }
@@ -353,7 +353,7 @@ impl Github {
                                 if release.is_not_official() {
                                     continue;
                                 }
-                                let release_hash = calculate_hash(&release);
+                                let release_hash = calculate_hash(&release.name);
                                 release_hashs.insert(release_hash);
                             }
                             self.releases.insert(name.to_string(), Some(release_hashs));
@@ -363,7 +363,7 @@ impl Github {
                                 if release.is_not_official() {
                                     continue;
                                 }
-                                let release_hash = calculate_hash(&release);
+                                let release_hash = calculate_hash(&release.name);
                                 if previous_releases.contains(&release_hash) {
                                     continue;
                                 }
@@ -446,7 +446,7 @@ impl Github {
                                 if release.is_not_official() {
                                     continue;
                                 }
-                                let release_hash = calculate_hash(&release);
+                                let release_hash = calculate_hash(&release.name);
                                 trace!("Release {:?} Hash {}", &release, &release_hash);
                                 release_hashs.insert(release_hash);
                             }
@@ -459,7 +459,7 @@ impl Github {
                                 if release.is_not_official() {
                                     continue;
                                 }
-                                let release_hash = calculate_hash(&release);
+                                let release_hash = calculate_hash(&release.name);
                                 release_hashs.insert(release_hash);
                             }
                             self.releases.insert(name.to_string(), Some(release_hashs));
@@ -469,7 +469,7 @@ impl Github {
                                 if release.is_not_official() {
                                     continue;
                                 }
-                                let release_hash = calculate_hash(&release);
+                                let release_hash = calculate_hash(&release.name);
                                 trace!("Release {:?} Hash {}", &release, &release_hash);
                                 if previous_releases.contains(&release_hash) {
                                     continue;
