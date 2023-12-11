@@ -5,6 +5,7 @@ mod endpoints;
 mod feeds;
 mod github;
 mod hello;
+mod help;
 mod ollama;
 mod ping;
 mod roll;

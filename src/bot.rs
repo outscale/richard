@@ -2,6 +2,7 @@ use crate::endpoints::Endpoints;
 use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
+use crate::help::Help;
 use crate::ollama::Ollama;
 use crate::ping::Ping;
 use crate::roll::Roll;
@@ -24,6 +25,7 @@ pub struct Bot {
     webpages: Webpages,
     roll: Roll,
     ping: Ping,
+    help: Help,
 }
 
 impl Bot {
@@ -37,6 +39,7 @@ impl Bot {
             webpages: Webpages::new()?,
             roll: Roll::new()?,
             ping: Ping::new()?,
+            help: Help::new()?,
         })
     }
 
@@ -53,18 +56,13 @@ impl Bot {
                     self.endpoints.run_trigger(&m.text, &m.id).await;
                     self.roll.run_trigger(&m.text, &m.id).await;
                     self.ping.run_trigger(&m.text, &m.id).await;
+                    self.help.run_trigger(&m.text, &m.id).await;
 
-                    if m.text.contains("help") {
-                        self.webex
-                            .respond(&m.id, "available commands are: ping, status, roll, help")
-                            .await;
-                    } else {
-                        let mut ollama = Ollama::default();
-                        match ollama.query(&m.text).await {
-                            Ok(message) => self.webex.respond(&m.id, &message).await,
-                            Err(err) => error!("ollama responded: {:#?}", err),
-                        };
-                    }
+                    let mut ollama = Ollama::default();
+                    match ollama.query(&m.text).await {
+                        Ok(message) => self.webex.respond(&m.id, &message).await,
+                        Err(err) => error!("ollama responded: {:#?}", err),
+                    };
                 }
             }
             Err(e) => error!("reading messages: {}", e),
