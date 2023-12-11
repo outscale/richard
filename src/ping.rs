@@ -1,11 +1,12 @@
 use crate::webex::WebexAgent;
-use std::env::VarError;
-
 use lazy_static::lazy_static;
 use log::error;
+use std::env::VarError;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::time::sleep;
+use tokio::time::Duration;
 
 pub async fn run() {
     MODULE.write().await.run().await;
@@ -52,5 +53,9 @@ impl Ping {
         self.webex.respond(parent_message, "pong").await;
     }
 
-    async fn run(&self) {}
+    async fn run(&self) {
+        loop {
+            sleep(Duration::from_secs(1000)).await;
+        }
+    }
 }

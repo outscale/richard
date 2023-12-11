@@ -1,14 +1,14 @@
 use crate::webex::WebexAgent;
+use lazy_static::lazy_static;
 use log::error;
 use log::trace;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::{env::VarError, error::Error, time::Duration};
-
-use lazy_static::lazy_static;
 use std::process::exit;
 use std::sync::Arc;
+use std::{env::VarError, error::Error, time::Duration};
 use tokio::sync::RwLock;
+use tokio::time::sleep;
 
 pub async fn run() {
     MODULE.write().await.run().await;
@@ -95,7 +95,11 @@ impl Ollama {
         };
     }
 
-    pub async fn run(&self) {}
+    async fn run(&self) {
+        loop {
+            sleep(Duration::from_secs(1000)).await;
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

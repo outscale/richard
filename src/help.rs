@@ -6,6 +6,8 @@ use std::env::VarError;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::time::sleep;
+use tokio::time::Duration;
 
 pub async fn run() {
     MODULE.write().await.run().await;
@@ -45,7 +47,11 @@ impl Help {
         })
     }
 
-    async fn run(&self) {}
+    async fn run(&self) {
+        loop {
+            sleep(Duration::from_secs(1000)).await;
+        }
+    }
 
     async fn run_trigger(&mut self, message: &str, parent_message: &str) {
         if !message.contains("help") {

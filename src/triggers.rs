@@ -1,15 +1,3 @@
-use crate::webex::WebexAgent;
-use log::info;
-use std::env::VarError;
-use tokio::time::sleep;
-use tokio::time::Duration;
-
-use lazy_static::lazy_static;
-use log::error;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
 use crate::endpoints;
 use crate::feeds;
 use crate::github;
@@ -18,7 +6,17 @@ use crate::help;
 use crate::ollama;
 use crate::ping;
 use crate::roll;
+use crate::webex::WebexAgent;
 use crate::webpages;
+use lazy_static::lazy_static;
+use log::error;
+use log::info;
+use std::env::VarError;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tokio::time::sleep;
+use tokio::time::Duration;
 
 pub async fn run() {
     MODULE.write().await.run().await;
