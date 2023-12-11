@@ -1,4 +1,4 @@
-use crate::bot::request_agent;
+use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
 use lazy_static::lazy_static;

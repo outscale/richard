@@ -7,7 +7,9 @@ mod hello;
 mod ollama;
 mod osc;
 mod roll;
+mod utils;
 mod webex;
+mod webpages;
 
 use bot::Bot;
 use log::error;

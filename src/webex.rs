@@ -1,4 +1,4 @@
-use crate::bot::request_agent;
+use crate::utils::request_agent;
 use log::{error, info, trace};
 use reqwest::RequestBuilder;
 use serde::Deserialize;

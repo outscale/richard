@@ -5,8 +5,8 @@ use crate::ollama::Ollama;
 use crate::osc;
 use crate::roll;
 use crate::webex;
+use crate::webpages::Webpages;
 use log::{debug, error, info, warn};
-use reqwest::Client;
 use std::env;
 use std::env::VarError;
 use std::error::Error;
@@ -15,25 +15,14 @@ use tokio::task::JoinSet;
 use tokio::time::sleep;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
-
-static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
-static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
-const DEFAULT_TIMEOUT_MS: u64 = 10_000;
-
-pub fn request_agent() -> Result<Client, reqwest::Error> {
-    let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
-    Client::builder().timeout(default_duration).build()
-}
-
 #[derive(Clone)]
 pub struct Bot {
     webex_agent: webex::WebexAgent,
     endpoints: Vec<osc::Endpoint>,
-    api_page: Option<String>,
-    omi_page: Option<String>,
     hello: Hello,
     github: Github,
     feeds: Feeds,
+    webpages: Webpages,
 }
 
 impl Bot {
@@ -41,11 +30,10 @@ impl Bot {
         Ok(Bot {
             webex_agent: webex::WebexAgent::new()?,
             endpoints: Bot::load_endpoints(),
-            api_page: None,
-            omi_page: None,
             hello: Hello::new()?,
             github: Github::new()?,
             feeds: Feeds::new()?,
+            webpages: Webpages::new()?,
         })
     }
 
@@ -186,40 +174,6 @@ impl Bot {
         self.respond(parent, response).await;
     }
 
-    pub async fn check_api_page_update(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let agent = request_agent()?;
-        let result = agent.get(API_DOC_URL).send().await?;
-        let body = result.text().await?;
-        if let Some(api_page) = &self.api_page {
-            if api_page.len() != body.len() || *api_page != body {
-                self.say(
-                    format!("Documentation front page has changed ({})", API_DOC_URL),
-                    false,
-                )
-                .await;
-            }
-        }
-        self.api_page = Some(body);
-        Ok(())
-    }
-
-    pub async fn check_omi_page_update(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let agent = request_agent()?;
-        let result = agent.get(OMI_DOC_URL).send().await?;
-        let body = result.text().await?;
-        if let Some(page) = &self.omi_page {
-            if page.len() != body.len() || *page != body {
-                self.say(
-                    format!("OMI page page has changed ({})", OMI_DOC_URL),
-                    false,
-                )
-                .await;
-            }
-        }
-        self.omi_page = Some(body);
-        Ok(())
-    }
-
     pub async fn run(self) {
         let mut tasks = JoinSet::new();
         let mut bot = self.clone();
@@ -261,22 +215,7 @@ impl Bot {
 
         let mut bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
-            loop {
-                if let Err(err) = bot.check_api_page_update().await {
-                    error!("while checking api page update: {}", err);
-                };
-                sleep(Duration::from_secs(600)).await;
-            }
-        }));
-
-        let mut bot = self.clone();
-        tasks.spawn(tokio::spawn(async move {
-            loop {
-                if let Err(err) = bot.check_omi_page_update().await {
-                    error!("while checking omi page update: {}", err);
-                };
-                sleep(Duration::from_secs(600)).await;
-            }
+            bot.webpages.run().await;
         }));
 
         let mut bot = self.clone();
