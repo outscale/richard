@@ -3,8 +3,8 @@ use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
 use crate::ollama::Ollama;
-use crate::roll;
-use crate::webex::{WebexAgent, WebexMessage};
+use crate::roll::Roll;
+use crate::webex::WebexAgent;
 use crate::webpages::Webpages;
 use log::{debug, error, info};
 use std::env::VarError;
@@ -21,6 +21,7 @@ pub struct Bot {
     github: Github,
     feeds: Feeds,
     webpages: Webpages,
+    roll: Roll,
 }
 
 impl Bot {
@@ -32,6 +33,7 @@ impl Bot {
             github: Github::new()?,
             feeds: Feeds::new()?,
             webpages: Webpages::new()?,
+            roll: Roll::new()?,
         })
     }
 
@@ -46,6 +48,7 @@ impl Bot {
                 for m in messages.items {
                     info!("received message: {}", m.text);
                     self.endpoints.run_trigger(&m.text, &m.id).await;
+                    self.roll.run_trigger(&m.text, &m.id).await;
 
                     if m.text.contains("help") {
                         self.webex
@@ -53,8 +56,6 @@ impl Bot {
                             .await;
                     } else if m.text.contains("ping") {
                         self.webex.respond(&m.id, "pong").await;
-                    } else if m.text.contains("roll") {
-                        self.action_roll(&m).await;
                     } else {
                         let mut ollama = Ollama::default();
                         match ollama.query(&m.text).await {
@@ -66,14 +67,6 @@ impl Bot {
             }
             Err(e) => error!("reading messages: {}", e),
         };
-    }
-
-    async fn action_roll(&mut self, message: &WebexMessage) {
-        let Some(response) = roll::gen(&message.text) else {
-            self.webex.respond(&message.id, roll::help()).await;
-            return;
-        };
-        self.webex.respond(&message.id, &response).await;
     }
 
     pub async fn run(self) {
