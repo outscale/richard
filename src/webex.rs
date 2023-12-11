@@ -69,6 +69,12 @@ impl WebexAgent {
         Ok(())
     }
 
+    pub async fn say_messages(&self, messages: Vec<String>) {
+        for message in messages.iter() {
+            self.say(message).await;
+        }
+    }
+
     pub async fn say<S: Into<String>>(&self, message: S) {
         self.say_generic(message, false).await;
     }
@@ -101,25 +107,24 @@ impl WebexAgent {
         };
     }
 
-    pub async fn respond<P, M>(
-        &self,
-        parent: P,
-        message: M,
-    ) -> Result<(), Box<dyn Error + Send + Sync>>
-    where
-        P: Into<String>,
-        M: Into<String>,
-    {
+    pub async fn respond(&self, parent: &str, message: &str) {
         let request = WebexQuery {
             room_id: self.room_id.clone(),
             parent_id: parent.into(),
             text: Some(message.into()),
             ..Default::default()
         };
-        self.post("https://webexapis.com/v1/messages", &request)?
-            .send()
-            .await?;
-        Ok(())
+
+        let post = match self.post("https://webexapis.com/v1/messages", &request) {
+            Ok(post) => post,
+            Err(err) => {
+                error!("webex post: {:#?}", err);
+                return;
+            }
+        };
+        if let Err(err) = post.send().await {
+            error!("webex respond: {:#?}", err)
+        }
     }
 
     pub async fn unread_messages(&mut self) -> Result<WebexMessages, Box<dyn Error + Send + Sync>> {

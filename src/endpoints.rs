@@ -1,9 +1,107 @@
 use crate::utils::request_agent;
+use crate::webex::WebexAgent;
+use log::info;
 use log::{error, trace, warn};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use std::cmp::min;
+use std::env::{self, VarError};
 use std::error::Error;
+use tokio::time::sleep;
+use tokio::time::Duration;
+
+const HIGH_ERROR_RATE: f32 = 0.1;
+
+#[derive(Clone)]
+pub struct Endpoints {
+    endpoints: Vec<Endpoint>,
+    webex: WebexAgent,
+}
+
+impl Endpoints {
+    pub fn new() -> Result<Endpoints, VarError> {
+        let mut endpoints = Endpoints {
+            endpoints: Vec::new(),
+            webex: WebexAgent::new()?,
+        };
+        for i in 0..100 {
+            let name = env::var(&format!("REGION_{}_NAME", i));
+            let endpoint = env::var(&format!("REGION_{}_ENDPOINT", i));
+            match (name, endpoint) {
+                (Ok(name), Ok(endpoint)) => {
+                    info!("endpoint {} configured", name);
+                    let new = Endpoint::new(name, endpoint);
+                    endpoints.endpoints.push(new);
+                }
+                _ => break,
+            }
+        }
+        Ok(endpoints)
+    }
+
+    pub async fn run_version(&mut self) {
+        loop {
+            let mut messages = Vec::<String>::new();
+            for endpoint in self.endpoints.iter_mut() {
+                info!("updating {}", endpoint.name);
+                if let Some(v) = endpoint.update_version().await {
+                    messages.push(format!("New API version on {}: {}", endpoint.name, v));
+                }
+            }
+            self.webex.say_messages(messages).await;
+            sleep(Duration::from_secs(600)).await;
+        }
+    }
+
+    pub async fn run_error_rate(&mut self) {
+        loop {
+            for endpoint in self.endpoints.iter_mut() {
+                if let Some(error_rate) = endpoint.update_error_rate().await {
+                    if error_rate > HIGH_ERROR_RATE {
+                        warn!(
+                            "high error rate on {}: {:?}%",
+                            endpoint.name,
+                            (error_rate * 100.0) as u32
+                        );
+                    }
+                }
+            }
+            sleep(Duration::from_secs(2)).await;
+        }
+    }
+
+    pub async fn run_alive(&mut self) {
+        loop {
+            let mut messages = Vec::<String>::new();
+            for endpoint in self.endpoints.iter_mut() {
+                if let Some(response) = endpoint.alive().await {
+                    messages.push(response);
+                }
+            }
+            self.webex.say_messages(messages).await;
+            sleep(Duration::from_secs(2)).await;
+        }
+    }
+
+    pub async fn run_trigger(&mut self, message: &str, parent_message: &str) {
+        if !message.contains("status") {
+            return;
+        }
+        let mut response = String::new();
+        for e in &self.endpoints {
+            let version = match &e.version {
+                Some(v) => v.clone(),
+                None => "unkown".to_string(),
+            };
+            let s = format!(
+                "{}: alive={}, version={}, error_rate={}\n",
+                e.name, e.alive, version, e.error_rate
+            );
+            response.push_str(s.as_str());
+        }
+        self.webex.respond(parent_message, &response).await;
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum EndpointError {
@@ -38,7 +136,7 @@ struct VersionResponse {
     version: String,
 }
 #[derive(Clone)]
-pub struct Endpoint {
+struct Endpoint {
     pub name: String,
     pub endpoint: String,
     pub version: Option<String>,
@@ -51,7 +149,7 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-    pub fn new(name: String, endpoint: String) -> Self {
+    fn new(name: String, endpoint: String) -> Self {
         Endpoint {
             name,
             endpoint,
@@ -67,7 +165,7 @@ impl Endpoint {
 
     // return new version if updated
     // return None on first update
-    pub async fn update_version(&mut self) -> Option<String> {
+    async fn update_version(&mut self) -> Option<String> {
         let version = Some(self.get_version().await.ok()?);
         let mut ret = None;
         if self.version.is_some() && version != self.version {
@@ -77,7 +175,7 @@ impl Endpoint {
         ret
     }
 
-    pub async fn get_version(&self) -> Result<String, Box<dyn Error + Send + Sync>> {
+    async fn get_version(&self) -> Result<String, Box<dyn Error + Send + Sync>> {
         let body = request_agent()?
             .post(&self.endpoint)
             .send()
@@ -128,7 +226,7 @@ impl Endpoint {
         (alive_old, self.alive)
     }
 
-    pub async fn update_error_rate(&mut self) -> Option<f32> {
+    async fn update_error_rate(&mut self) -> Option<f32> {
         // A simple sliding mean, only providing value once sliding window is full.
         const SIZE: f32 = 100.0;
         self.error_rate_acc = match self.get_version().await {
@@ -144,7 +242,7 @@ impl Endpoint {
         }
     }
 
-    pub async fn alive(&mut self) -> Option<String> {
+    async fn alive(&mut self) -> Option<String> {
         let response: Option<String> = match self.update_alive().await {
             (true, false) => match &self.last_error {
                 Some(error) => match error {
