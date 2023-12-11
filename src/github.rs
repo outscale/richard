@@ -1,5 +1,4 @@
 use crate::utils::request_agent;
-use crate::webex;
 use crate::webex::WebexAgent;
 use lazy_static::lazy_static;
 use log::trace;
@@ -13,7 +12,8 @@ use std::{
 pub type ReleaseHash = u64;
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::error::Error;
+use tokio::time::sleep;
+use tokio::time::Duration;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
 static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
@@ -21,39 +21,32 @@ static GITHUB_SPECIFIC_ORG_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_SPECIFIC_REPO_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_ORG_NAME_TRIGGER: &str = "outscale";
 static GITHUB_REPO_NAME_TRIGGER: &str = "cluster-api-provider-outscale";
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Github {
-    pub token: String,
-    pub releases: HashMap<String, Option<HashSet<ReleaseHash>>>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct Repo {
-    pub name: String,
-    pub full_name: String,
-    archived: bool,
-    fork: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
-pub struct Release {
-    html_url: String,
-    pub tag_name: String,
-    pub name: String,
-    pub prerelease: bool,
-    pub draft: bool,
-    pub body: String,
+    webex: WebexAgent,
+    token: String,
+    releases: HashMap<String, Option<HashSet<ReleaseHash>>>,
 }
 
 impl Github {
     pub fn new() -> Result<Self, VarError> {
         let token = env::var("GITHUB_TOKEN")?;
-        Ok(Self {
+        Ok(Github {
+            webex: WebexAgent::new()?,
             token,
             releases: HashMap::new(),
         })
     }
-    pub async fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
+
+    pub async fn run(&mut self) {
+        loop {
+            self.check_specific_github_release().await;
+            self.check_github_release().await;
+            sleep(Duration::from_secs(600)).await;
+        }
+    }
+
+    async fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
         let Ok(agent) = request_agent() else {
             return None;
         };
@@ -115,7 +108,7 @@ impl Github {
     }
 
     // Trigger specific github action dispatch
-    pub async fn trigger_version_github_action(
+    async fn trigger_version_github_action(
         &self,
         org_name: &str,
         repo_name: std::string::String,
@@ -167,7 +160,7 @@ impl Github {
         Some("Trigger has been launched".to_string())
     }
     // Get specific repo
-    pub async fn get_specific_repos(
+    async fn get_specific_repos(
         &self,
         org_name: &str,
         repo_names: &Vec<std::string::String>,
@@ -240,7 +233,7 @@ impl Github {
         Some(results)
     }
 
-    pub async fn get_releases(&self, repo_name: &str) -> Option<Vec<Release>> {
+    async fn get_releases(&self, repo_name: &str) -> Option<Vec<Release>> {
         let Ok(agent) = request_agent() else {
             return None;
         };
@@ -299,10 +292,7 @@ impl Github {
         Some(results)
     }
 
-    pub async fn check_specific_github_release(
-        &mut self,
-        webex_agent: &WebexAgent,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn check_specific_github_release(&mut self) {
         let mut repo_specific_names: Vec<std::string::String> = Vec::new();
         let mut release_target_name = "v0.0.0".to_string();
 
@@ -376,7 +366,7 @@ impl Github {
                                     release.get_notification_message(&repo);
                                 release_target_name = release.tag_name;
                                 previous_releases.insert(release_hash);
-                                webex_agent.say_markdown(release_get_notification).await;
+                                self.webex.say_markdown(release_get_notification).await;
                                 previous_releases.insert(release_hash);
                             }
                         }
@@ -412,13 +402,9 @@ impl Github {
                 }
             }
         }
-        Ok(())
     }
 
-    pub async fn check_github_release(
-        &mut self,
-        webex_agent: &WebexAgent,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn check_github_release(&mut self) {
         for org_name in GITHUB_ORG_NAMES {
             info!("retrieving all repos from {}", org_name);
 
@@ -479,19 +465,33 @@ impl Github {
                                 }
                                 info!("got release for {} with tag {}", name, release.tag_name);
                                 previous_releases.insert(release_hash);
-                                webex::WebexAgent::say_markdown(
-                                    webex_agent,
-                                    release.get_notification_message(&repo),
-                                )
-                                .await;
+                                let message = release.get_notification_message(&repo);
+                                self.webex.say_markdown(message).await;
                             }
                         }
                     },
                 }
             }
         }
-        Ok(())
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Repo {
+    pub name: String,
+    pub full_name: String,
+    archived: bool,
+    fork: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
+pub struct Release {
+    html_url: String,
+    pub tag_name: String,
+    pub name: String,
+    pub prerelease: bool,
+    pub draft: bool,
+    pub body: String,
 }
 
 impl Release {

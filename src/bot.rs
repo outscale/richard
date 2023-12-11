@@ -117,25 +117,8 @@ impl Bot {
         }));
 
         let mut bot = self.clone();
-        let webex = self.webex.clone();
         tasks.spawn(tokio::spawn(async move {
-            loop {
-                if let Err(err) = bot.github.check_specific_github_release(&webex).await {
-                    error!("while checking specific github release: {}", err);
-                }
-                sleep(Duration::from_secs(600)).await;
-            }
-        }));
-
-        let mut bot = self.clone();
-        let webex = self.webex.clone();
-        tasks.spawn(tokio::spawn(async move {
-            loop {
-                if let Err(err) = bot.github.check_github_release(&webex).await {
-                    error!("while checking github release: {}", err);
-                };
-                sleep(Duration::from_secs(600)).await;
-            }
+            bot.github.run().await;
         }));
 
         loop {
