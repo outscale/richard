@@ -5,8 +5,39 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{env::VarError, error::Error, time::Duration};
 
+use lazy_static::lazy_static;
+use std::process::exit;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+pub async fn run() {
+    MODULE.write().await.run().await;
+}
+
+pub async fn run_trigger(message: &str, parent_message: &str) {
+    MODULE
+        .write()
+        .await
+        .run_trigger(message, parent_message)
+        .await
+}
+
+lazy_static! {
+    static ref MODULE: Arc<RwLock<Ollama>> = init();
+}
+
+fn init() -> Arc<RwLock<Ollama>> {
+    match Ollama::new() {
+        Ok(h) => Arc::new(RwLock::new(h)),
+        Err(err) => {
+            error!("cannot initialize module, missing var {:#}", err);
+            exit(1);
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct Ollama {
+struct Ollama {
     model: String,
     endpoint: String,
     context: Vec<usize>,
@@ -14,7 +45,7 @@ pub struct Ollama {
 }
 
 impl Ollama {
-    pub fn new() -> Result<Ollama, VarError> {
+    fn new() -> Result<Ollama, VarError> {
         Ok(Ollama {
             model: "richard".to_string(),
             endpoint: "http://localhost:11434".to_string(),
@@ -23,7 +54,7 @@ impl Ollama {
         })
     }
 
-    pub async fn query(&mut self, prompt: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    async fn query(&mut self, prompt: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         trace!("asking richard: {}", prompt);
         let url = format!("{}/api/generate", self.endpoint);
         let query = OllamaQuery {
@@ -56,6 +87,8 @@ impl Ollama {
             Err(err) => error!("ollama responded: {:#?}", err),
         };
     }
+
+    pub async fn run(&self) {}
 }
 
 #[derive(Clone, Debug, Serialize)]

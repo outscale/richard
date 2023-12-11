@@ -3,7 +3,7 @@ use crate::feeds::Feeds;
 use crate::github::Github;
 use crate::hello::Hello;
 use crate::help;
-use crate::ollama::Ollama;
+use crate::ollama;
 use crate::ping;
 use crate::roll;
 use crate::webex::WebexAgent;
@@ -23,7 +23,6 @@ pub struct Bot {
     github: Github,
     feeds: Feeds,
     webpages: Webpages,
-    ollama: Ollama,
 }
 
 impl Bot {
@@ -35,7 +34,6 @@ impl Bot {
             github: Github::new()?,
             feeds: Feeds::new()?,
             webpages: Webpages::new()?,
-            ollama: Ollama::new()?,
         })
     }
 
@@ -53,7 +51,7 @@ impl Bot {
                     roll::run_trigger(&m.text, &m.id).await;
                     ping::run_trigger(&m.text, &m.id).await;
                     help::run_trigger(&m.text, &m.id).await;
-                    self.ollama.run_trigger(&m.text, &m.id).await;
+                    ollama::run_trigger(&m.text, &m.id).await;
                 }
             }
             Err(e) => error!("reading messages: {}", e),
@@ -70,6 +68,9 @@ impl Bot {
         }));
         tasks.spawn(tokio::spawn(async move {
             ping::run().await;
+        }));
+        tasks.spawn(tokio::spawn(async move {
+            ollama::run().await;
         }));
 
         let mut bot = self.clone();
