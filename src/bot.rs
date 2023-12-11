@@ -1,7 +1,7 @@
 use crate::endpoints;
 use crate::feeds::Feeds;
 use crate::github::Github;
-use crate::hello::Hello;
+use crate::hello;
 use crate::help;
 use crate::ollama;
 use crate::ping;
@@ -18,7 +18,6 @@ use tokio::time::sleep;
 #[derive(Clone)]
 pub struct Bot {
     webex: WebexAgent,
-    hello: Hello,
     github: Github,
     feeds: Feeds,
     webpages: Webpages,
@@ -28,7 +27,6 @@ impl Bot {
     pub fn load() -> Result<Self, VarError> {
         Ok(Bot {
             webex: WebexAgent::new()?,
-            hello: Hello::new()?,
             github: Github::new()?,
             feeds: Feeds::new()?,
             webpages: Webpages::new()?,
@@ -50,6 +48,7 @@ impl Bot {
                     ping::run_trigger(&m.text, &m.id).await;
                     help::run_trigger(&m.text, &m.id).await;
                     ollama::run_trigger(&m.text, &m.id).await;
+                    hello::run_trigger(&m.text, &m.id).await;
                 }
             }
             Err(e) => error!("reading messages: {}", e),
@@ -79,18 +78,8 @@ impl Bot {
         tasks.spawn(tokio::spawn(async move {
             endpoints::run_alive().await;
         }));
-
-        let bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
-            bot.hello.run().await;
-        }));
-
-        let mut bot = self.clone();
-        tasks.spawn(tokio::spawn(async move {
-            loop {
-                bot.actions().await;
-                sleep(Duration::from_secs(10)).await;
-            }
+            hello::run().await;
         }));
 
         let mut bot = self.clone();
@@ -106,6 +95,14 @@ impl Bot {
         let mut bot = self.clone();
         tasks.spawn(tokio::spawn(async move {
             bot.github.run().await;
+        }));
+
+        let mut bot = self.clone();
+        tasks.spawn(tokio::spawn(async move {
+            loop {
+                bot.actions().await;
+                sleep(Duration::from_secs(10)).await;
+            }
         }));
 
         loop {
