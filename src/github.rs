@@ -17,6 +17,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tokio::time::Duration;
+use chrono::prelude::{DateTime, Utc};
+use std::time::SystemTime;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
 static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
@@ -393,12 +395,14 @@ impl Github {
                                     continue;
                                 }
 
-                                info!("got release for {} with tag {}", name, release.tag_name);
+                                info!("got release for {} with tag {}", name, &release.tag_name);
                                 let release_get_notification =
                                     release.get_notification_message(&repo);
-                                release_target_name = release.tag_name;
+                                release_target_name = release.tag_name.clone();
                                 previous_releases.insert(release_hash);
-                                self.webex.say_markdown(release_get_notification).await;
+                                if !release.is_too_old() {
+                                    self.webex.say_markdown(release_get_notification).await;
+                                }
                                 previous_releases.insert(release_hash);
                             }
                         }
@@ -497,8 +501,10 @@ impl Github {
                                 }
                                 info!("got release for {} with tag {}", name, release.tag_name);
                                 previous_releases.insert(release_hash);
-                                let message = release.get_notification_message(&repo);
-                                self.webex.say_markdown(message).await;
+                                if !release.is_too_old() {
+                                    let message = release.get_notification_message(&repo);
+                                    self.webex.say_markdown(message).await;
+                                }
                             }
                         }
                     },
@@ -524,6 +530,7 @@ struct Release {
     pub prerelease: bool,
     pub draft: bool,
     pub body: String,
+    published_at: Option<String>,
 }
 
 impl Release {
@@ -536,6 +543,23 @@ impl Release {
 
     pub fn is_not_official(&self) -> bool {
         self.draft || self.prerelease
+    }
+
+    fn is_too_old(&self) -> bool {
+        let Some(published_at) = self.published_at.clone() else {
+            return false;
+        };
+        let Ok(published_date) = DateTime::parse_from_rfc3339(&published_at) else {
+            return false;
+        };
+        let published_date: DateTime<Utc> = published_date.into();
+        let now_date = SystemTime::now();
+        let now_date: DateTime<Utc> = now_date.into();
+        let diff = now_date - published_date;
+        if diff.num_days() < 10 {
+            return false;
+        }
+        true
     }
 }
 
