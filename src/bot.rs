@@ -16,9 +16,19 @@ use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::sleep;
 
+#[derive(Clone)]
 pub struct ModuleParam {
-    name: String,
-    description: String,
+    pub name: String,
+    pub description: String,
+}
+
+impl ModuleParam {
+    pub fn new(name: &str, description: &str) -> ModuleParam {
+        ModuleParam {
+            name: name.to_string(),
+            description: description.to_string(),
+        }
+    }
 }
 
 #[async_trait]

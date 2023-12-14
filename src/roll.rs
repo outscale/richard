@@ -1,8 +1,10 @@
+use crate::webex;
 use crate::webex::WebexAgent;
 use log::trace;
 use rand::Rng;
 use std::env::VarError;
 use tokio::time::Duration;
+
 #[derive(Clone)]
 pub struct Roll {
     webex: WebexAgent,
@@ -18,7 +20,7 @@ impl Module for Roll {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        webex::params()
     }
 
     async fn module_offering(&mut self, _modules: &[SharedModule]) {}

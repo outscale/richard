@@ -1,4 +1,5 @@
 use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use log::error;
@@ -26,7 +27,7 @@ impl Module for Triggers {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        webex::params()
     }
 
     async fn module_offering(&mut self, modules: &[SharedModule]) {

@@ -1,3 +1,4 @@
+use crate::bot::ModuleParam;
 use crate::utils::request_agent;
 use log::{error, trace};
 use reqwest::RequestBuilder;
@@ -6,6 +7,13 @@ use serde::Serialize;
 use std::env;
 use std::env::VarError;
 use std::error::Error;
+
+pub fn params() -> Vec<ModuleParam> {
+    vec![
+        ModuleParam::new("WEBEX_TOKEN", "token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots)."),
+        ModuleParam::new("WEBEX_ROOM_ID", "webex room id where to speak"),
+    ]
+}
 
 #[derive(Clone)]
 pub struct WebexAgent {

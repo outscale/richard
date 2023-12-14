@@ -1,5 +1,5 @@
 use crate::utils::request_agent;
-use crate::webex::WebexAgent;
+use crate::webex::{self, WebexAgent};
 use log::info;
 use log::{error, trace, warn};
 use reqwest::StatusCode;
@@ -27,7 +27,20 @@ impl Module for Endpoints {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        [
+            webex::params(),
+            vec![
+                ModuleParam::new(
+                    "REGION_0_NAME",
+                    "Outscale region name of the endpoints, can be multiple (0..)",
+                ),
+                ModuleParam::new(
+                    "REGION_0_ENDPOINT",
+                    "Outscale region endpoint, can be multiple (0..)",
+                ),
+            ],
+        ]
+        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[SharedModule]) {}

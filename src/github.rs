@@ -11,6 +11,7 @@ use std::{
 };
 pub type ReleaseHash = u64;
 use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::webex;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -32,7 +33,11 @@ impl Module for Github {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        [
+            webex::params(),
+            vec![ModuleParam::new("GITHUB_TOKEN", "Github token")],
+        ]
+        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[SharedModule]) {}

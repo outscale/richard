@@ -1,4 +1,5 @@
 use crate::utils::request_agent;
+use crate::webex;
 use crate::webex::WebexAgent;
 use feed_rs::model;
 use feed_rs::parser::parse;
@@ -24,7 +25,14 @@ impl Module for Feeds {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        [
+            webex::params(),
+            vec![
+                ModuleParam::new("FEED_0_NAME", "Feed name, can be multiple (0..)"),
+                ModuleParam::new("FEED_0_URL", "Feed URL, can be multiple (0..)"),
+            ],
+        ]
+        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[SharedModule]) {}

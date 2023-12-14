@@ -1,9 +1,9 @@
+use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::webex;
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
 use log::trace;
 use std::env::VarError;
-
-use crate::bot::{Module, ModuleParam, SharedModule};
-use async_trait::async_trait;
 use tokio::time::Duration;
 
 #[async_trait]
@@ -13,7 +13,7 @@ impl Module for Ping {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        webex::params()
     }
 
     async fn module_offering(&mut self, _modules: &[SharedModule]) {}

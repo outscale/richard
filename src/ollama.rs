@@ -1,3 +1,4 @@
+use crate::webex;
 use crate::webex::WebexAgent;
 use log::error;
 use log::trace;
@@ -23,7 +24,7 @@ impl Module for Ollama {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        vec![]
+        webex::params()
     }
 
     async fn module_offering(&mut self, _modules: &[SharedModule]) {}
