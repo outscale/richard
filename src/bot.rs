@@ -20,13 +20,15 @@ use tokio::time::sleep;
 pub struct ModuleParam {
     pub name: String,
     pub description: String,
+    pub optional: bool,
 }
 
 impl ModuleParam {
-    pub fn new(name: &str, description: &str) -> ModuleParam {
+    pub fn new(name: &str, description: &str, optional: bool) -> ModuleParam {
         ModuleParam {
             name: name.to_string(),
             description: description.to_string(),
+            optional,
         }
     }
 }
@@ -97,6 +99,32 @@ impl Bot {
             let mut module_rw = module.write().await;
             module_rw.module_offering(&self.modules).await;
         }
+    }
+
+    pub async fn help(&self) -> String {
+        let mut output = String::new();
+        for module in self.modules.iter() {
+            let module_ro = module.read().await;
+            let name = module_ro.name();
+            let params = module_ro.params();
+            drop(module_ro);
+            output.push_str(format!("# '{name}' module parameters\n").as_str());
+            if params.is_empty() {
+                output.push_str("  [no parameter]\n\n");
+                continue;
+            }
+            for param in params {
+                output.push_str(
+                    format!(
+                        "- {}: {} (optional: {})\n",
+                        param.name, param.description, param.optional
+                    )
+                    .as_str(),
+                );
+            }
+            output.push('\n');
+        }
+        output
     }
 
     pub async fn run(&mut self) {

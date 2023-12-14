@@ -10,8 +10,8 @@ use std::error::Error;
 
 pub fn params() -> Vec<ModuleParam> {
     vec![
-        ModuleParam::new("WEBEX_TOKEN", "token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots)."),
-        ModuleParam::new("WEBEX_ROOM_ID", "webex room id where to speak"),
+        ModuleParam::new("WEBEX_TOKEN", "token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).", true),
+        ModuleParam::new("WEBEX_ROOM_ID", "webex room id where to speak", true),
     ]
 }
 

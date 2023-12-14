@@ -35,7 +35,7 @@ impl Module for Github {
     fn params(&self) -> Vec<ModuleParam> {
         [
             webex::params(),
-            vec![ModuleParam::new("GITHUB_TOKEN", "Github token")],
+            vec![ModuleParam::new("GITHUB_TOKEN", "Github token", false)],
         ]
         .concat()
     }

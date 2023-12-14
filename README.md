@@ -33,6 +33,9 @@ If you need to have a static binary:
 # Configure
 
 Parameters are passed through environment variables.
+Use `--show-params` flag to print all needed var env per modules
+
+## All variables
 
 - `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
 - `WEBEX_ROOM_ID`: you can get room id by listing rooms (see below)

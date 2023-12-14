@@ -33,10 +33,12 @@ impl Module for Endpoints {
                 ModuleParam::new(
                     "REGION_0_NAME",
                     "Outscale region name of the endpoints, can be multiple (0..)",
+                    false,
                 ),
                 ModuleParam::new(
                     "REGION_0_ENDPOINT",
                     "Outscale region endpoint, can be multiple (0..)",
+                    false,
                 ),
             ],
         ]

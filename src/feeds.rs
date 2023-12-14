@@ -28,8 +28,8 @@ impl Module for Feeds {
         [
             webex::params(),
             vec![
-                ModuleParam::new("FEED_0_NAME", "Feed name, can be multiple (0..)"),
-                ModuleParam::new("FEED_0_URL", "Feed URL, can be multiple (0..)"),
+                ModuleParam::new("FEED_0_NAME", "Feed name, can be multiple (0..)", false),
+                ModuleParam::new("FEED_0_URL", "Feed URL, can be multiple (0..)", false),
             ],
         ]
         .concat()
