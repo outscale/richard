@@ -23,7 +23,7 @@ impl Triggers {
 #[async_trait]
 impl Module for Triggers {
     fn name(&self) -> &'static str {
-        "ping"
+        "triggers"
     }
 
     fn params(&self) -> Vec<ModuleParam> {

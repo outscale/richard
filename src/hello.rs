@@ -2,7 +2,6 @@ use crate::bot::{Module, ModuleParam, SharedModule};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
-use log::trace;
 use rand::prelude::IteratorRandom;
 use std::env::VarError;
 use tokio::time::Duration;
@@ -49,14 +48,7 @@ impl Module for Hello {
         vec![Duration::from_secs(seven_day_s)]
     }
 
-    async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("ping") {
-            trace!("ignoring message {}", message);
-            return;
-        }
-        trace!("responding to ping");
-        self.webex.respond("pong", id).await;
-    }
+    async fn trigger(&mut self, _message: &str, _id: &str) {}
 }
 
 #[derive(Clone)]

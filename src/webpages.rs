@@ -13,7 +13,7 @@ static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs
 #[async_trait]
 impl Module for Webpages {
     fn name(&self) -> &'static str {
-        "ping"
+        "webpages"
     }
 
     fn params(&self) -> Vec<ModuleParam> {

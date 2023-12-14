@@ -9,7 +9,7 @@ use tokio::time::Duration;
 #[async_trait]
 impl Module for Help {
     fn name(&self) -> &'static str {
-        "ping"
+        "help"
     }
 
     fn params(&self) -> Vec<ModuleParam> {
