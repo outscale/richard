@@ -29,8 +29,8 @@ impl Module for Triggers {
         vec![]
     }
 
-    async fn module_offering(&mut self, modules: Vec<SharedModule>) {
-        self.all_modules = modules;
+    async fn module_offering(&mut self, modules: &Vec<SharedModule>) {
+        self.all_modules = modules.clone();
     }
 
     async fn has_needed_params(&self) -> bool {

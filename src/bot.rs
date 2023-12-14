@@ -25,7 +25,7 @@ pub struct ModuleParam {
 pub trait Module {
     fn name(&self) -> &'static str;
     fn params(&self) -> Vec<ModuleParam>;
-    async fn module_offering(&mut self, modules: Vec<SharedModule>);
+    async fn module_offering(&mut self, modules: &Vec<SharedModule>);
     async fn has_needed_params(&self) -> bool;
     async fn run(&mut self, variation: usize); // alternative to `variation`?
     async fn variation_durations(&mut self) -> Vec<Duration>;
@@ -58,6 +58,8 @@ impl Bot {
             .push(Arc::new(RwLock::new(Box::new(Ollama::new().unwrap()))));
         bot.modules
             .push(Arc::new(RwLock::new(Box::new(Feeds::new().unwrap()))));
+        bot.modules
+            .push(Arc::new(RwLock::new(Box::new(Roll::new().unwrap()))));
         bot
     }
 
@@ -92,7 +94,7 @@ impl Bot {
     async fn send_modules(&self) {
         for module in self.modules.iter() {
             let mut module_rw = module.write().await;
-            module_rw.module_offering(self.modules.clone()).await;
+            module_rw.module_offering(&self.modules).await;
         }
     }
 

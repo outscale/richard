@@ -1,66 +1,52 @@
 use crate::webex::WebexAgent;
-use lazy_static::lazy_static;
-use log::error;
 use log::trace;
 use rand::Rng;
 use std::env::VarError;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
 use tokio::time::Duration;
-
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(1000)).await;
-    }
-}
-
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Roll>> = init();
-}
-
-fn init() -> Arc<RwLock<Roll>> {
-    match Roll::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Roll {
     webex: WebexAgent,
 }
 
-impl Roll {
-    fn new() -> Result<Self, VarError> {
-        Ok(Roll {
-            webex: WebexAgent::new()?,
-        })
+use crate::bot::{Module, ModuleParam, SharedModule};
+use async_trait::async_trait;
+
+#[async_trait]
+impl Module for Roll {
+    fn name(&self) -> &'static str {
+        "roll"
     }
 
-    async fn run(&self) {}
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
 
-    async fn run_trigger(&mut self, message: &str, parent_message: &str) {
+    async fn module_offering(&mut self, _modules: &Vec<SharedModule>) {}
+
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, _variation: usize) {}
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(9999)]
+    }
+
+    async fn trigger(&mut self, message: &str, id: &str) {
         if !message.contains("roll") {
             return;
         }
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
-        self.webex.respond(&response, parent_message).await;
+        self.webex.respond(&response, id).await;
+    }
+}
+
+impl Roll {
+    pub fn new() -> Result<Self, VarError> {
+        Ok(Roll {
+            webex: WebexAgent::new()?,
+        })
     }
 
     fn gen(request: &String) -> Option<String> {
