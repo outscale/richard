@@ -44,7 +44,7 @@ fn init() -> Arc<RwLock<Webpages>> {
     }
 }
 #[derive(Clone)]
-struct Webpages {
+pub struct Webpages {
     pages: Vec<Webpage>,
     webex: WebexAgent,
 }

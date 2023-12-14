@@ -1,42 +1,42 @@
-use lazy_static::lazy_static;
-
 use crate::webex::WebexAgent;
-use log::error;
+use log::trace;
 use std::env::VarError;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
+
+use crate::bot::{Module, SharedModule, ModuleParam};
+use async_trait::async_trait;
 use tokio::time::Duration;
 
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(1000)).await;
+#[async_trait]
+impl Module for Help {
+    fn name(&self) -> &'static str {
+        "ping"
     }
-}
 
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
 
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Help>> = init();
-}
+    fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
 
-fn init() -> Arc<RwLock<Help>> {
-    match Help::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self) {}
+
+    async fn cooldown_duration(&mut self) -> Duration {
+        Duration::from_secs(100)
+    }
+
+    async fn trigger(&mut self, message: &str, id: &str) {
+        if !message.contains("help") {
+            trace!("ignoring message {}", message);
+            return;
         }
+        trace!("responding to help");
+        self.webex
+            .respond("available commands are: ping, status, roll, help", id)
+            .await;
     }
 }
 
@@ -46,23 +46,9 @@ pub struct Help {
 }
 
 impl Help {
-    fn new() -> Result<Self, VarError> {
+    pub fn new() -> Result<Self, VarError> {
         Ok(Help {
             webex: WebexAgent::new()?,
         })
-    }
-
-    async fn run(&self) {}
-
-    async fn run_trigger(&mut self, message: &str, parent_message: &str) {
-        if !message.contains("help") {
-            return;
-        }
-        self.webex
-            .respond(
-                "available commands are: ping, status, roll, help",
-                parent_message
-            )
-            .await;
     }
 }

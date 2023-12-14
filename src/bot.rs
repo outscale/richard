@@ -1,68 +1,103 @@
-use crate::endpoints;
-use crate::feeds;
-use crate::github;
-use crate::hello;
-use crate::help;
-use crate::ollama;
-use crate::ping;
-use crate::roll;
-use crate::triggers;
-use crate::webex;
-use crate::webpages;
-use log::error;
+use crate::endpoints::Endpoints;
+use crate::feeds::Feeds;
+use crate::github::Github;
+use crate::hello::Hello;
+use crate::help::Help;
+use crate::ollama::Ollama;
+use crate::ping::Ping;
+use crate::roll::Roll;
+use crate::triggers::Triggers;
+use crate::webpages::Webpages;
+use async_trait::async_trait;
+use log::info;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::sleep;
 
-pub async fn run() {
-    let mut tasks = JoinSet::new();
-    tasks.spawn(tokio::spawn(async move {
-        help::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        roll::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        ping::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        ollama::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        endpoints::run_version().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        endpoints::run_error_rate().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        endpoints::run_alive().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        hello::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        webpages::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        feeds::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        github::run().await;
-    }));
-    tasks.spawn(tokio::spawn(async move {
-        triggers::run().await;
-    }));
-
-    loop {
-        tasks.join_next().await;
-        error!("this should not happen :)");
-        sleep(Duration::from_secs(1)).await;
-    }
+pub struct ModuleParam {
+    name: String,
+    description: String,
 }
 
-pub async fn check() -> bool {
-    let Ok(w) = webex::WebexAgent::new() else {
-        return false;
-    };
-    w.check().await
+#[async_trait]
+pub trait Module {
+    fn name(&self) -> &'static str;
+    fn params(&self) -> Vec<ModuleParam>;
+    fn module_offering(&mut self, modules: Vec<SharedModule>);
+    async fn has_needed_params(&self) -> bool;
+    async fn run(&mut self);
+    async fn cooldown_duration(&mut self) -> Duration;
+    async fn trigger(&mut self, message: &str, id: &str);
+}
+
+pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
+pub struct Bot {
+    modules: Vec<SharedModule>,
+}
+
+impl Bot {
+    pub fn new() -> Bot {
+        let mut bot = Bot {
+            modules: Vec::new(),
+        };
+        bot.modules
+            .push(Arc::new(RwLock::new(Box::new(Ping::new().unwrap()))));
+        bot.modules
+            .push(Arc::new(RwLock::new(Box::new(Help::new().unwrap()))));
+        bot.modules
+            .push(Arc::new(RwLock::new(Box::new(Triggers::new().unwrap()))));
+        bot
+    }
+
+    pub async fn ready(&mut self) -> bool {
+        let mut ret = true;
+        for module in self.modules.iter() {
+            let module_ro = module.read().await;
+            let has_needed_params = module_ro.has_needed_params().await;
+            info!("module {} has needed params: {}", module_ro.name(), has_needed_params);
+            if !has_needed_params {
+                ret = false;
+            }
+        }
+        ret
+    }
+
+    pub async fn get_module(&self, name: &str) -> Option<SharedModule> {
+        for module in self.modules.iter() {
+            let module_ro = module.read().await;
+            if *name == *module_ro.name() {
+                drop(module_ro);
+                return Some(module.clone());
+            }
+        }
+        None
+    }
+
+    async fn send_modules(&self) {
+        for module in self.modules.iter() {
+            let mut module_rw = module.write().await;
+            module_rw.module_offering(self.modules.clone());
+        }
+    }
+
+    pub async fn run(&mut self) {
+        self.send_modules().await;
+        let mut tasks = JoinSet::new();
+        for module in self.modules.iter() {
+            let module = module.clone();
+            tasks.spawn(tokio::spawn(async move {
+                let module = module.clone();
+                loop {
+                    let mut module_rw = module.write().await;
+                    module_rw.run().await;
+                    let cooldown = module_rw.cooldown_duration().await;
+                    drop(module_rw);
+                    sleep(cooldown).await;
+                }
+            }));
+        }
+        tasks.join_next().await;
+    }
 }

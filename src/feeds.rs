@@ -46,7 +46,7 @@ fn init() -> Arc<RwLock<Feeds>> {
 }
 
 #[derive(Clone)]
-struct Feeds {
+pub struct Feeds {
     feeds: Vec<Feed>,
     webex: WebexAgent,
 }

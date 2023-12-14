@@ -42,7 +42,7 @@ fn init() -> Arc<RwLock<Ollama>> {
 }
 
 #[derive(Clone)]
-struct Ollama {
+pub struct Ollama {
     model: String,
     endpoint: String,
     context: Vec<usize>,

@@ -1,63 +1,43 @@
-use crate::endpoints;
-use crate::feeds;
-use crate::github;
-use crate::hello;
-use crate::help;
-use crate::ollama;
-use crate::ping;
-use crate::roll;
 use crate::webex::WebexAgent;
-use crate::webpages;
-use lazy_static::lazy_static;
-use log::error;
-use log::info;
 use std::env::VarError;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
 use tokio::time::Duration;
-
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(10)).await;
-    }
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Triggers>> = init();
-}
-
-fn init() -> Arc<RwLock<Triggers>> {
-    match Triggers::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
-    }
-}
+use log::{error, trace};
+use crate::bot::{Module, SharedModule, ModuleParam};
+use async_trait::async_trait;
 
 #[derive(Clone)]
-struct Triggers {
+pub struct Triggers {
     webex: WebexAgent,
+    all_modules: Vec<SharedModule>,
 }
 
 impl Triggers {
-    fn new() -> Result<Self, VarError> {
+    pub fn new() -> Result<Self, VarError> {
         Ok(Triggers {
             webex: WebexAgent::new()?,
+            all_modules: Vec::new(),
         })
+    }
+}
+#[async_trait]
+impl Module for Triggers {
+    fn name(&self) -> &'static str {
+        "ping"
+    }
+
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
+
+    fn module_offering(&mut self, modules: Vec<SharedModule>) {
+        self.all_modules = modules;
+    }
+
+    async fn has_needed_params(&self) -> bool {
+        true
     }
 
     async fn run(&mut self) {
-        self.triggers().await;
-    }
-
-    async fn triggers(&mut self) {
         let new_messages = match self.webex.unread_messages().await {
             Ok(messages) => messages,
             Err(err) => {
@@ -65,18 +45,17 @@ impl Triggers {
                 return;
             }
         };
-
-        for m in new_messages.items {
-            info!("received message: {}", m.text);
-            endpoints::run_trigger(&m.text, &m.id).await;
-            roll::run_trigger(&m.text, &m.id).await;
-            ping::run_trigger(&m.text, &m.id).await;
-            help::run_trigger(&m.text, &m.id).await;
-            ollama::run_trigger(&m.text, &m.id).await;
-            hello::run_trigger(&m.text, &m.id).await;
-            webpages::run_trigger(&m.text, &m.id).await;
-            feeds::run_trigger(&m.text, &m.id).await;
-            github::run_trigger(&m.text, &m.id).await;
+        for message in new_messages.items {
+            for module in self.all_modules.iter() {
+                let mut module_rw = module.write().await;
+                module_rw.trigger(&message.text, &message.id).await;
+            }
         }
     }
+
+    async fn cooldown_duration(&mut self) -> Duration {
+        Duration::from_secs(10)
+    }
+
+    async fn trigger(&mut self, _message: &str, _id: &str) {}
 }

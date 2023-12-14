@@ -67,7 +67,7 @@ fn init() -> Arc<RwLock<Endpoints>> {
 }
 
 #[derive(Clone)]
-struct Endpoints {
+pub struct Endpoints {
     endpoints: Vec<Endpoint>,
     webex: WebexAgent,
 }

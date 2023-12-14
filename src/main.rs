@@ -1,6 +1,7 @@
 /* Copyright Outscale SAS */
 
 use std::process::exit;
+use log::{error, info};
 
 mod bot;
 mod endpoints;
@@ -19,8 +20,11 @@ mod webpages;
 #[tokio::main]
 pub async fn main() {
     env_logger::init();
-    if !bot::check().await {
+    let mut bot = bot::Bot::new();
+    if !bot.ready().await {
+        error!("some bot modules does not have requiered parameters");
         exit(1);
     }
-    bot::run().await;
+    info!("bot will now run");
+    bot.run().await;
 }

@@ -10,15 +10,15 @@ use std::{
     hash::{Hash, Hasher},
 };
 pub type ReleaseHash = u64;
+use chrono::prelude::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::process::exit;
 use std::sync::Arc;
+use std::time::SystemTime;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tokio::time::Duration;
-use chrono::prelude::{DateTime, Utc};
-use std::time::SystemTime;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
 static GITHUB_ORG_NAMES: [&str; 2] = ["outscale", "outscale-dev"];
@@ -59,7 +59,7 @@ fn init() -> Arc<RwLock<Github>> {
 }
 
 #[derive(Clone)]
-struct Github {
+pub struct Github {
     webex: WebexAgent,
     token: String,
     releases: HashMap<String, Option<HashSet<ReleaseHash>>>,
