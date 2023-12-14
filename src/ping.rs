@@ -1,6 +1,6 @@
 use crate::webex::WebexAgent;
 use lazy_static::lazy_static;
-use log::error;
+use log::{error, trace};
 use std::env::VarError;
 use std::process::exit;
 use std::sync::Arc;
@@ -48,8 +48,10 @@ impl Ping {
 
     async fn run_trigger(&mut self, message: &str, parent_message: &str) {
         if !message.contains("ping") {
+            trace!("ignoring message {}", message);
             return;
         }
+        trace!("responding to ping");
         self.webex.respond("pong", parent_message).await;
     }
 

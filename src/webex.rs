@@ -114,6 +114,7 @@ impl WebexAgent {
     }
 
     pub async fn respond(&self, message: &str, parent: &str) {
+        trace!("richard responding to parent id {parent}: {message}");
         let request = WebexQuery {
             room_id: self.room_id.clone(),
             parent_id: parent.into(),
