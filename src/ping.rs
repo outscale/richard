@@ -16,16 +16,16 @@ impl Module for Ping {
         vec![]
     }
 
-    fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
+    async fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
 
     async fn has_needed_params(&self) -> bool {
         true
     }
 
-    async fn run(&mut self) {}
+    async fn run(&mut self, _variation: usize) {}
 
-    async fn cooldown_duration(&mut self) -> Duration {
-        Duration::from_secs(100)
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(100)]
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {

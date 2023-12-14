@@ -7,73 +7,74 @@ use serde::Deserialize;
 use std::cmp::min;
 use std::env::{self, VarError};
 use std::error::Error;
-use tokio::time::sleep;
 use tokio::time::Duration;
 
-use lazy_static::lazy_static;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use crate::bot::{Module, ModuleParam, SharedModule};
+use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
 
-pub async fn run_version() {
-    loop {
-        {
-            MODULE.write().await.run_version().await;
-        }
-        sleep(Duration::from_secs(600)).await;
-    }
-}
-
-pub async fn run_error_rate() {
-    loop {
-        {
-            MODULE.write().await.run_error_rate().await;
-        }
-        sleep(Duration::from_secs(2)).await;
-    }
-}
-
-pub async fn run_alive() {
-    loop {
-        {
-            MODULE.write().await.run_alive().await;
-        }
-        sleep(Duration::from_secs(2)).await;
-    }
-}
-
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Endpoints>> = init();
-}
-
-fn init() -> Arc<RwLock<Endpoints>> {
-    match Endpoints::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Endpoints {
-    endpoints: Vec<Endpoint>,
     webex: WebexAgent,
+    endpoints: Vec<Endpoint>,
+}
+
+#[async_trait]
+impl Module for Endpoints {
+    fn name(&self) -> &'static str {
+        "endpoints"
+    }
+
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
+
+    async fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
+
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, variation: usize) {
+        match variation {
+            0 => self.run_error_rate().await,
+            1 => self.run_alive().await,
+            2 => self.run_version().await,
+            var => error!("variation {var} is not managed"),
+        };
+    }
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![
+            Duration::from_secs(2),
+            Duration::from_secs(2),
+            Duration::from_secs(600),
+        ]
+    }
+
+    async fn trigger(&mut self, message: &str, id: &str) {
+        if !message.contains("status") {
+            return;
+        }
+        let mut response = String::new();
+        for e in &self.endpoints {
+            let version = match &e.version {
+                Some(v) => v.clone(),
+                None => "unkown".to_string(),
+            };
+            let s = format!(
+                "{}: alive={}, version={}, error_rate={}\n",
+                e.name, e.alive, version, e.error_rate
+            );
+            response.push_str(s.as_str());
+        }
+        self.webex.respond(&response, id).await;
+    }
 }
 
 impl Endpoints {
-    fn new() -> Result<Endpoints, VarError> {
+    pub fn new() -> Result<Endpoints, VarError> {
         let mut endpoints = Endpoints {
             endpoints: Vec::new(),
             webex: WebexAgent::new()?,
@@ -93,7 +94,8 @@ impl Endpoints {
         Ok(endpoints)
     }
 
-    async fn run_version(&mut self) {
+    // TODO: move this as a separate module with 600s of cooldown
+    pub async fn run_version(&mut self) {
         let mut messages = Vec::<String>::new();
         for endpoint in self.endpoints.iter_mut() {
             info!("updating {}", endpoint.name);
@@ -127,59 +129,8 @@ impl Endpoints {
         }
         self.webex.say_messages(messages).await;
     }
-
-    async fn run_trigger(&mut self, message: &str, parent_message: &str) {
-        if !message.contains("status") {
-            return;
-        }
-        let mut response = String::new();
-        for e in &self.endpoints {
-            let version = match &e.version {
-                Some(v) => v.clone(),
-                None => "unkown".to_string(),
-            };
-            let s = format!(
-                "{}: alive={}, version={}, error_rate={}\n",
-                e.name, e.alive, version, e.error_rate
-            );
-            response.push_str(s.as_str());
-        }
-        self.webex.respond(&response, parent_message).await;
-    }
 }
 
-#[derive(Clone, Debug)]
-enum EndpointError {
-    AgentInit(String),
-    Code(u16),
-    Transport(String),
-}
-
-impl EndpointError {
-    fn from_reqwest(err: reqwest::Error) -> EndpointError {
-        match err.source() {
-            Some(e) => EndpointError::Transport(format!("{}, {}", err, e)),
-            None => EndpointError::Transport(err.to_string()),
-        }
-    }
-}
-
-impl ToString for EndpointError {
-    fn to_string(&self) -> String {
-        match self {
-            EndpointError::AgentInit(err) => format!("Internal error: {}", err),
-            EndpointError::Code(503) => "API has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
-            EndpointError::Code(other) => format!("API is down (error code: {})", other),
-            EndpointError::Transport(transport) => format!("API seems down (transport error: {})", transport),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Default)]
-#[serde(rename_all = "PascalCase")]
-struct VersionResponse {
-    version: String,
-}
 #[derive(Clone)]
 struct Endpoint {
     name: String,
@@ -312,4 +263,37 @@ impl Endpoint {
         }
         response
     }
+}
+
+#[derive(Clone, Debug)]
+enum EndpointError {
+    AgentInit(String),
+    Code(u16),
+    Transport(String),
+}
+
+impl EndpointError {
+    fn from_reqwest(err: reqwest::Error) -> EndpointError {
+        match err.source() {
+            Some(e) => EndpointError::Transport(format!("{}, {}", err, e)),
+            None => EndpointError::Transport(err.to_string()),
+        }
+    }
+}
+
+impl ToString for EndpointError {
+    fn to_string(&self) -> String {
+        match self {
+            EndpointError::AgentInit(err) => format!("Internal error: {}", err),
+            EndpointError::Code(503) => "API has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
+            EndpointError::Code(other) => format!("API is down (error code: {})", other),
+            EndpointError::Transport(transport) => format!("API seems down (transport error: {})", transport),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Default)]
+#[serde(rename_all = "PascalCase")]
+struct VersionResponse {
+    version: String,
 }

@@ -25,10 +25,10 @@ pub struct ModuleParam {
 pub trait Module {
     fn name(&self) -> &'static str;
     fn params(&self) -> Vec<ModuleParam>;
-    fn module_offering(&mut self, modules: Vec<SharedModule>);
+    async fn module_offering(&mut self, modules: Vec<SharedModule>);
     async fn has_needed_params(&self) -> bool;
-    async fn run(&mut self);
-    async fn cooldown_duration(&mut self) -> Duration;
+    async fn run(&mut self, variation: usize); // alternative to `variation`?
+    async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str, id: &str);
 }
 
@@ -48,6 +48,8 @@ impl Bot {
             .push(Arc::new(RwLock::new(Box::new(Help::new().unwrap()))));
         bot.modules
             .push(Arc::new(RwLock::new(Box::new(Triggers::new().unwrap()))));
+        bot.modules
+            .push(Arc::new(RwLock::new(Box::new(Endpoints::new().unwrap()))));
         bot
     }
 
@@ -56,7 +58,11 @@ impl Bot {
         for module in self.modules.iter() {
             let module_ro = module.read().await;
             let has_needed_params = module_ro.has_needed_params().await;
-            info!("module {} has needed params: {}", module_ro.name(), has_needed_params);
+            info!(
+                "module {} has needed params: {}",
+                module_ro.name(),
+                has_needed_params
+            );
             if !has_needed_params {
                 ret = false;
             }
@@ -78,7 +84,7 @@ impl Bot {
     async fn send_modules(&self) {
         for module in self.modules.iter() {
             let mut module_rw = module.write().await;
-            module_rw.module_offering(self.modules.clone());
+            module_rw.module_offering(self.modules.clone()).await;
         }
     }
 
@@ -86,17 +92,22 @@ impl Bot {
         self.send_modules().await;
         let mut tasks = JoinSet::new();
         for module in self.modules.iter() {
-            let module = module.clone();
-            tasks.spawn(tokio::spawn(async move {
+            let mut module_rw = module.write().await;
+            let variations_cooldown_durations = module_rw.variation_durations().await;
+            drop(module_rw);
+            for (variation, duration) in variations_cooldown_durations.iter().enumerate() {
                 let module = module.clone();
-                loop {
-                    let mut module_rw = module.write().await;
-                    module_rw.run().await;
-                    let cooldown = module_rw.cooldown_duration().await;
-                    drop(module_rw);
-                    sleep(cooldown).await;
-                }
-            }));
+                let duration = *duration;
+                tasks.spawn(tokio::spawn(async move {
+                    let module = module.clone();
+                    loop {
+                        let mut module_rw = module.write().await;
+                        module_rw.run(variation).await;
+                        drop(module_rw);
+                        sleep(duration).await;
+                    }
+                }));
+            }
         }
         tasks.join_next().await;
     }

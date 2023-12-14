@@ -1,9 +1,9 @@
+use crate::bot::{Module, ModuleParam, SharedModule};
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
+use log::{error, trace};
 use std::env::VarError;
 use tokio::time::Duration;
-use log::{error, trace};
-use crate::bot::{Module, SharedModule, ModuleParam};
-use async_trait::async_trait;
 
 #[derive(Clone)]
 pub struct Triggers {
@@ -29,7 +29,7 @@ impl Module for Triggers {
         vec![]
     }
 
-    fn module_offering(&mut self, modules: Vec<SharedModule>) {
+    async fn module_offering(&mut self, modules: Vec<SharedModule>) {
         self.all_modules = modules;
     }
 
@@ -37,7 +37,7 @@ impl Module for Triggers {
         true
     }
 
-    async fn run(&mut self) {
+    async fn run(&mut self, _variation: usize) {
         let new_messages = match self.webex.unread_messages().await {
             Ok(messages) => messages,
             Err(err) => {
@@ -53,8 +53,8 @@ impl Module for Triggers {
         }
     }
 
-    async fn cooldown_duration(&mut self) -> Duration {
-        Duration::from_secs(10)
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(10)]
     }
 
     async fn trigger(&mut self, _message: &str, _id: &str) {}
