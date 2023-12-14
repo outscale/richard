@@ -11,7 +11,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub async fn run() {
-    MODULE.write().await.run().await;
+    loop {
+        let day_s = 24 * 60 * 60;
+        sleep(Duration::from_secs(7 * day_s)).await;
+        {
+            MODULE.write().await.run().await;
+        }
+    }
 }
 
 pub async fn run_trigger(message: &str, parent_message: &str) {
@@ -66,11 +72,7 @@ impl Hello {
     }
 
     async fn run(&self) {
-        let day_s = 24 * 60 * 60;
-        loop {
-            sleep(Duration::from_secs(7 * day_s)).await;
-            self.hello().await;
-        }
+        self.hello().await;
     }
 
     async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}

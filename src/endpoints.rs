@@ -18,15 +18,30 @@ use tokio::sync::RwLock;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
 pub async fn run_version() {
-    MODULE.write().await.run_version().await;
+    loop {
+        {
+            MODULE.write().await.run_version().await;
+        }
+        sleep(Duration::from_secs(600)).await;
+    }
 }
 
 pub async fn run_error_rate() {
-    MODULE.write().await.run_error_rate().await;
+    loop {
+        {
+            MODULE.write().await.run_error_rate().await;
+        }
+        sleep(Duration::from_secs(2)).await;
+    }
 }
 
 pub async fn run_alive() {
-    MODULE.write().await.run_alive().await;
+    loop {
+        {
+            MODULE.write().await.run_alive().await;
+        }
+        sleep(Duration::from_secs(2)).await;
+    }
 }
 
 pub async fn run_trigger(message: &str, parent_message: &str) {
@@ -79,47 +94,38 @@ impl Endpoints {
     }
 
     async fn run_version(&mut self) {
-        loop {
-            let mut messages = Vec::<String>::new();
-            for endpoint in self.endpoints.iter_mut() {
-                info!("updating {}", endpoint.name);
-                if let Some(v) = endpoint.update_version().await {
-                    messages.push(format!("New API version on {}: {}", endpoint.name, v));
-                }
+        let mut messages = Vec::<String>::new();
+        for endpoint in self.endpoints.iter_mut() {
+            info!("updating {}", endpoint.name);
+            if let Some(v) = endpoint.update_version().await {
+                messages.push(format!("New API version on {}: {}", endpoint.name, v));
             }
-            self.webex.say_messages(messages).await;
-            sleep(Duration::from_secs(600)).await;
         }
+        self.webex.say_messages(messages).await;
     }
 
     async fn run_error_rate(&mut self) {
-        loop {
-            for endpoint in self.endpoints.iter_mut() {
-                if let Some(error_rate) = endpoint.update_error_rate().await {
-                    if error_rate > HIGH_ERROR_RATE {
-                        warn!(
-                            "high error rate on {}: {:?}%",
-                            endpoint.name,
-                            (error_rate * 100.0) as u32
-                        );
-                    }
+        for endpoint in self.endpoints.iter_mut() {
+            if let Some(error_rate) = endpoint.update_error_rate().await {
+                if error_rate > HIGH_ERROR_RATE {
+                    warn!(
+                        "high error rate on {}: {:?}%",
+                        endpoint.name,
+                        (error_rate * 100.0) as u32
+                    );
                 }
             }
-            sleep(Duration::from_secs(2)).await;
         }
     }
 
     async fn run_alive(&mut self) {
-        loop {
-            let mut messages = Vec::<String>::new();
-            for endpoint in self.endpoints.iter_mut() {
-                if let Some(response) = endpoint.alive().await {
-                    messages.push(response);
-                }
+        let mut messages = Vec::<String>::new();
+        for endpoint in self.endpoints.iter_mut() {
+            if let Some(response) = endpoint.alive().await {
+                messages.push(response);
             }
-            self.webex.say_messages(messages).await;
-            sleep(Duration::from_secs(2)).await;
         }
+        self.webex.say_messages(messages).await;
     }
 
     async fn run_trigger(&mut self, message: &str, parent_message: &str) {

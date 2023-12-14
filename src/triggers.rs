@@ -19,7 +19,12 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 
 pub async fn run() {
-    MODULE.write().await.run().await;
+    loop {
+        {
+            MODULE.write().await.run().await;
+        }
+        sleep(Duration::from_secs(10)).await;
+    }
 }
 
 lazy_static! {
@@ -49,10 +54,7 @@ impl Triggers {
     }
 
     async fn run(&mut self) {
-        loop {
-            self.triggers().await;
-            sleep(Duration::from_secs(10)).await;
-        }
+        self.triggers().await;
     }
 
     async fn triggers(&mut self) {

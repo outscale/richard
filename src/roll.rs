@@ -11,7 +11,12 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 
 pub async fn run() {
-    MODULE.write().await.run().await;
+    loop {
+        {
+            MODULE.write().await.run().await;
+        }
+        sleep(Duration::from_secs(1000)).await;
+    }
 }
 
 pub async fn run_trigger(message: &str, parent_message: &str) {
@@ -48,11 +53,7 @@ impl Roll {
         })
     }
 
-    async fn run(&self) {
-        loop {
-            sleep(Duration::from_secs(1000)).await;
-        }
-    }
+    async fn run(&self) {}
 
     async fn run_trigger(&mut self, message: &str, parent_message: &str) {
         if !message.contains("roll") {

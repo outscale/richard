@@ -14,7 +14,12 @@ static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
 static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
 
 pub async fn run() {
-    MODULE.write().await.run().await;
+    loop {
+        {
+            MODULE.write().await.run().await;
+        }
+        sleep(Duration::from_secs(600)).await;
+    }
 }
 
 pub async fn run_trigger(message: &str, parent_message: &str) {
@@ -58,10 +63,7 @@ impl Webpages {
     }
 
     async fn run(&mut self) {
-        loop {
-            self.check_pages().await;
-            sleep(Duration::from_secs(600)).await;
-        }
+        self.check_pages().await;
     }
 
     async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}

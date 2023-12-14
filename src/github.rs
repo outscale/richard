@@ -28,7 +28,12 @@ static GITHUB_ORG_NAME_TRIGGER: &str = "outscale";
 static GITHUB_REPO_NAME_TRIGGER: &str = "cluster-api-provider-outscale";
 
 pub async fn run() {
-    MODULE.write().await.run().await;
+    loop {
+        {
+            MODULE.write().await.run().await;
+        }
+        sleep(Duration::from_secs(600)).await;
+    }
 }
 
 pub async fn run_trigger(message: &str, parent_message: &str) {
@@ -71,11 +76,8 @@ impl Github {
     }
 
     async fn run(&mut self) {
-        loop {
-            self.check_specific_github_release().await;
-            self.check_github_release().await;
-            sleep(Duration::from_secs(600)).await;
-        }
+        self.check_specific_github_release().await;
+        self.check_github_release().await;
     }
 
     async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}

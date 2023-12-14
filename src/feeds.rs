@@ -15,7 +15,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub async fn run() {
-    MODULE.write().await.run().await;
+    loop {
+        {
+            MODULE.write().await.run().await;
+        }
+        sleep(Duration::from_secs(3600)).await;
+    }
 }
 
 pub async fn run_trigger(message: &str, parent_message: &str) {
@@ -67,10 +72,7 @@ impl Feeds {
     }
 
     async fn run(&mut self) {
-        loop {
-            self.check_feeds().await;
-            sleep(Duration::from_secs(3600)).await;
-        }
+        self.check_feeds().await;
     }
 
     async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
