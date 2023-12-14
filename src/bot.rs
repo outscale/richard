@@ -9,7 +9,8 @@ use crate::roll::Roll;
 use crate::triggers::Triggers;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
-use log::info;
+use log::error;
+use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -81,14 +82,34 @@ impl Bot {
         let mut ret = true;
         for module in self.modules.iter() {
             let module_ro = module.read().await;
-            let has_needed_params = module_ro.has_needed_params().await;
-            info!(
-                "module {} has needed params: {}",
-                module_ro.name(),
-                has_needed_params
-            );
-            if !has_needed_params {
-                ret = false;
+            let name = module_ro.name();
+            let params = module_ro.params();
+            drop(module_ro);
+            if params.is_empty() {
+                continue;
+            }
+            for param in params {
+                if param.optional {
+                    continue;
+                }
+                match env::var(&param.name) {
+                    Ok(value) => {
+                        if value.is_empty() {
+                            error!(
+                                "module {} need mandatory environment variable {}",
+                                name, param.name
+                            );
+                            ret = false;
+                        }
+                    }
+                    Err(_) => {
+                        error!(
+                            "module {} need mandatory environment variable {}",
+                            name, param.name
+                        );
+                        ret = false;
+                    }
+                }
             }
         }
         ret
