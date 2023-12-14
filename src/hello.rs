@@ -1,60 +1,28 @@
+use crate::bot::{Module, ModuleParam, SharedModule};
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
+use log::trace;
 use rand::prelude::IteratorRandom;
 use std::env::VarError;
-use tokio::time::sleep;
 use tokio::time::Duration;
 
-use lazy_static::lazy_static;
-use log::error;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
-pub async fn run() {
-    loop {
-        let day_s = 24 * 60 * 60;
-        sleep(Duration::from_secs(7 * day_s)).await;
-        {
-            MODULE.write().await.run().await;
-        }
-    }
-}
-
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Hello>> = init();
-}
-
-fn init() -> Arc<RwLock<Hello>> {
-    match Hello::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Hello {
-    webex: WebexAgent,
-}
-
-impl Hello {
-    fn new() -> Result<Self, VarError> {
-        Ok(Hello {
-            webex: WebexAgent::new()?,
-        })
+#[async_trait]
+impl Module for Hello {
+    fn name(&self) -> &'static str {
+        "hello"
     }
 
-    async fn hello(&self) {
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
+
+    async fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
+
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, _variation: usize) {
         const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
         const OTHER_QUOTES: &[(&str, &str)] = &include!("quotes.rs");
         let all_quotes = OTHER_QUOTES
@@ -71,9 +39,30 @@ impl Hello {
         self.webex.say(quote).await;
     }
 
-    async fn run(&self) {
-        self.hello().await;
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        let seven_day_s = 7 * 24 * 60 * 60;
+        vec![Duration::from_secs(seven_day_s)]
     }
 
-    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
+    async fn trigger(&mut self, message: &str, id: &str) {
+        if !message.contains("ping") {
+            trace!("ignoring message {}", message);
+            return;
+        }
+        trace!("responding to ping");
+        self.webex.respond("pong", id).await;
+    }
+}
+
+#[derive(Clone)]
+pub struct Hello {
+    webex: WebexAgent,
+}
+
+impl Hello {
+    pub fn new() -> Result<Self, VarError> {
+        Ok(Hello {
+            webex: WebexAgent::new()?,
+        })
+    }
 }
