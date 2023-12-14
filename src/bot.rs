@@ -50,6 +50,8 @@ impl Bot {
             .push(Arc::new(RwLock::new(Box::new(Triggers::new().unwrap()))));
         bot.modules
             .push(Arc::new(RwLock::new(Box::new(Endpoints::new().unwrap()))));
+        bot.modules
+            .push(Arc::new(RwLock::new(Box::new(Github::new().unwrap()))));
         bot
     }
 

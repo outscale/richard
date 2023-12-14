@@ -10,14 +10,12 @@ use std::{
     hash::{Hash, Hasher},
 };
 pub type ReleaseHash = u64;
+use crate::bot::{Module, ModuleParam, SharedModule};
+use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::process::exit;
-use std::sync::Arc;
 use std::time::SystemTime;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
 use tokio::time::Duration;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
@@ -27,37 +25,36 @@ static GITHUB_SPECIFIC_REPO_NAMES: [&str; 1] = ["kubernetes"];
 static GITHUB_ORG_NAME_TRIGGER: &str = "outscale";
 static GITHUB_REPO_NAME_TRIGGER: &str = "cluster-api-provider-outscale";
 
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(600)).await;
+#[async_trait]
+impl Module for Github {
+    fn name(&self) -> &'static str {
+        "github"
     }
-}
 
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Github>> = init();
-}
-
-fn init() -> Arc<RwLock<Github>> {
-    match Github::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
     }
-}
 
+    async fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
+
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, variation: usize) {
+        match variation {
+            0 => self.check_specific_github_release().await,
+            1 => self.check_github_release().await,
+            var => error!("variation {var} is not managed"),
+        };
+    }
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(3600), Duration::from_secs(600)]
+    }
+
+    async fn trigger(&mut self, _message: &str, _id: &str) {}
+}
 #[derive(Clone)]
 pub struct Github {
     webex: WebexAgent,
@@ -66,7 +63,7 @@ pub struct Github {
 }
 
 impl Github {
-    fn new() -> Result<Self, VarError> {
+    pub fn new() -> Result<Self, VarError> {
         let token = env::var("GITHUB_TOKEN")?;
         Ok(Github {
             webex: WebexAgent::new()?,
@@ -74,13 +71,6 @@ impl Github {
             releases: HashMap::new(),
         })
     }
-
-    async fn run(&mut self) {
-        self.check_specific_github_release().await;
-        self.check_github_release().await;
-    }
-
-    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
 
     async fn get_all_repos(&self, org_name: &str) -> Option<Vec<Repo>> {
         let Ok(agent) = request_agent() else {
