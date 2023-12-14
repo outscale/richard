@@ -6,44 +6,7 @@ use log::{error, info};
 use std::cmp::Ordering;
 use std::env::{self, VarError};
 use std::error::Error;
-use tokio::time::sleep;
 use tokio::time::Duration;
-
-use lazy_static::lazy_static;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(3600)).await;
-    }
-}
-
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Feeds>> = init();
-}
-
-fn init() -> Arc<RwLock<Feeds>> {
-    match Feeds::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Feeds {
@@ -51,33 +14,26 @@ pub struct Feeds {
     webex: WebexAgent,
 }
 
-impl Feeds {
-    fn new() -> Result<Feeds, VarError> {
-        let mut feeds = Feeds {
-            feeds: Vec::new(),
-            webex: WebexAgent::new()?,
-        };
-        for i in 0..100 {
-            let name = env::var(&format!("FEED_{}_NAME", i));
-            let url = env::var(&format!("FEED_{}_URL", i));
-            match (name, url) {
-                (Ok(name), Ok(url)) => {
-                    info!("feed configured: {} ({}), ", name, url);
-                    feeds.feeds.push(Feed::new(name, url));
-                }
-                _ => break,
-            }
-        }
-        Ok(feeds)
+use crate::bot::{Module, ModuleParam, SharedModule};
+use async_trait::async_trait;
+
+#[async_trait]
+impl Module for Feeds {
+    fn name(&self) -> &'static str {
+        "feeds"
     }
 
-    async fn run(&mut self) {
-        self.check_feeds().await;
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
     }
 
-    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
+    async fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
 
-    async fn check_feeds(&mut self) {
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, _variation: usize) {
         let mut messages: Vec<String> = Vec::new();
         for feed in &mut self.feeds {
             if feed.update().await {
@@ -95,6 +51,33 @@ impl Feeds {
         for msg in messages {
             self.webex.say(msg).await;
         }
+    }
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(3600)]
+    }
+
+    async fn trigger(&mut self, _message: &str, _id: &str) {}
+}
+
+impl Feeds {
+    pub fn new() -> Result<Feeds, VarError> {
+        let mut feeds = Feeds {
+            feeds: Vec::new(),
+            webex: WebexAgent::new()?,
+        };
+        for i in 0..100 {
+            let name = env::var(&format!("FEED_{}_NAME", i));
+            let url = env::var(&format!("FEED_{}_URL", i));
+            match (name, url) {
+                (Ok(name), Ok(url)) => {
+                    info!("feed configured: {} ({}), ", name, url);
+                    feeds.feeds.push(Feed::new(name, url));
+                }
+                _ => break,
+            }
+        }
+        Ok(feeds)
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::webex::WebexAgent;
-use log::{error, trace};
+use log::trace;
 use std::env::VarError;
 
 use crate::bot::{Module, ModuleParam, SharedModule};
