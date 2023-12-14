@@ -1,45 +1,9 @@
 use crate::webex::WebexAgent;
-use lazy_static::lazy_static;
 use log::error;
 use log::trace;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::process::exit;
-use std::sync::Arc;
 use std::{env::VarError, error::Error, time::Duration};
-use tokio::sync::RwLock;
-use tokio::time::sleep;
-
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(1000)).await;
-    }
-}
-
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
-
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Ollama>> = init();
-}
-
-fn init() -> Arc<RwLock<Ollama>> {
-    match Ollama::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Ollama {
@@ -49,8 +13,47 @@ pub struct Ollama {
     webex: WebexAgent,
 }
 
+use crate::bot::{Module, ModuleParam, SharedModule};
+use async_trait::async_trait;
+
+#[async_trait]
+impl Module for Ollama {
+    fn name(&self) -> &'static str {
+        "ollama"
+    }
+
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
+
+    async fn module_offering(&mut self, _modules: Vec<SharedModule>) {}
+
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, _variation: usize) {}
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(100)]
+    }
+
+    async fn trigger(&mut self, message: &str, id: &str) {
+        let keywords = vec!["status", "help", "ping", "roll"];
+        for keyword in keywords {
+            if message.contains(keyword) {
+                return;
+            }
+        }
+        match self.query(message).await {
+            Ok(message) => self.webex.respond(&message, id).await,
+            Err(err) => error!("ollama responded: {:#?}", err),
+        };
+    }
+}
+
 impl Ollama {
-    fn new() -> Result<Ollama, VarError> {
+    pub fn new() -> Result<Ollama, VarError> {
         Ok(Ollama {
             model: "richard".to_string(),
             endpoint: "http://localhost:11434".to_string(),
@@ -85,22 +88,6 @@ impl Ollama {
         trace!("ollama context is now {:#?}", self.context);
         Ok(response.response)
     }
-
-    pub async fn run_trigger(&mut self, message: &str, parent_message: &str) {
-        let keywords = vec!["status", "help", "ping", "roll"];
-        for keyword in keywords {
-            if message.contains(keyword) {
-                return;
-            }
-        }
-
-        match self.query(message).await {
-            Ok(message) => self.webex.respond(&message, parent_message).await,
-            Err(err) => error!("ollama responded: {:#?}", err),
-        };
-    }
-
-    async fn run(&self) {}
 }
 
 #[derive(Clone, Debug, Serialize)]
