@@ -24,6 +24,10 @@ impl Module for Hello {
     }
 
     async fn run(&mut self, _variation: usize) {
+        if !self.has_skipped_first_time {
+            self.has_skipped_first_time = true;
+            return;
+        }
         const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
         const OTHER_QUOTES: &[(&str, &str)] = &include!("quotes.rs");
         let all_quotes = OTHER_QUOTES
@@ -58,12 +62,14 @@ impl Module for Hello {
 #[derive(Clone)]
 pub struct Hello {
     webex: WebexAgent,
+    has_skipped_first_time: bool,
 }
 
 impl Hello {
     pub fn new() -> Result<Self, VarError> {
         Ok(Hello {
             webex: WebexAgent::new()?,
+            has_skipped_first_time: false,
         })
     }
 }
