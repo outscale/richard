@@ -21,7 +21,7 @@ impl Module for Roll {
         vec![]
     }
 
-    async fn module_offering(&mut self, _modules: &Vec<SharedModule>) {}
+    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
 
     async fn has_needed_params(&self) -> bool {
         true

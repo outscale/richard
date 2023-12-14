@@ -1,7 +1,7 @@
 use crate::bot::{Module, ModuleParam, SharedModule};
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
-use log::{error, trace};
+use log::error;
 use std::env::VarError;
 use tokio::time::Duration;
 
@@ -29,8 +29,8 @@ impl Module for Triggers {
         vec![]
     }
 
-    async fn module_offering(&mut self, modules: &Vec<SharedModule>) {
-        self.all_modules = modules.clone();
+    async fn module_offering(&mut self, modules: &[SharedModule]) {
+        self.all_modules = Vec::from(modules);
     }
 
     async fn has_needed_params(&self) -> bool {

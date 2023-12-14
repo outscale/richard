@@ -1,48 +1,46 @@
+use crate::bot::{Module, ModuleParam, SharedModule};
 use crate::utils::request_agent;
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
 use log::error;
 use std::env::VarError;
-use tokio::time::sleep;
 use tokio::time::Duration;
-
-use lazy_static::lazy_static;
-use std::process::exit;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
 static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
 
-pub async fn run() {
-    loop {
-        {
-            MODULE.write().await.run().await;
-        }
-        sleep(Duration::from_secs(600)).await;
+#[async_trait]
+impl Module for Webpages {
+    fn name(&self) -> &'static str {
+        "ping"
     }
-}
 
-pub async fn run_trigger(message: &str, parent_message: &str) {
-    MODULE
-        .write()
-        .await
-        .run_trigger(message, parent_message)
-        .await
-}
+    fn params(&self) -> Vec<ModuleParam> {
+        vec![]
+    }
 
-lazy_static! {
-    static ref MODULE: Arc<RwLock<Webpages>> = init();
-}
+    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
 
-fn init() -> Arc<RwLock<Webpages>> {
-    match Webpages::new() {
-        Ok(h) => Arc::new(RwLock::new(h)),
-        Err(err) => {
-            error!("cannot initialize module, missing var {:#}", err);
-            exit(1);
+    async fn has_needed_params(&self) -> bool {
+        true
+    }
+
+    async fn run(&mut self, _variation: usize) {
+        for page in self.pages.iter_mut() {
+            if page.changed().await {
+                let message = format!("{} has changed ({})", page.name, page.url);
+                self.webex.say(message).await;
+            }
         }
     }
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(600)]
+    }
+
+    async fn trigger(&mut self, _message: &str, _id: &str) {}
 }
+
 #[derive(Clone)]
 pub struct Webpages {
     pages: Vec<Webpage>,
@@ -50,7 +48,7 @@ pub struct Webpages {
 }
 
 impl Webpages {
-    fn new() -> Result<Self, VarError> {
+    pub fn new() -> Result<Self, VarError> {
         let webpages = Webpages {
             // TODO: set by env var listing
             pages: vec![
@@ -60,21 +58,6 @@ impl Webpages {
             webex: WebexAgent::new()?,
         };
         Ok(webpages)
-    }
-
-    async fn run(&mut self) {
-        self.check_pages().await;
-    }
-
-    async fn run_trigger(&mut self, _message: &str, _parent_message: &str) {}
-
-    async fn check_pages(&mut self) {
-        for page in self.pages.iter_mut() {
-            if page.changed().await {
-                let message = format!("{} has changed ({})", page.name, page.url);
-                self.webex.say(message).await;
-            }
-        }
     }
 }
 
