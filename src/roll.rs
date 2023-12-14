@@ -59,7 +59,7 @@ impl Roll {
             return;
         }
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
-        self.webex.respond(parent_message, &response).await;
+        self.webex.respond(&response, parent_message).await;
     }
 
     fn gen(request: &String) -> Option<String> {

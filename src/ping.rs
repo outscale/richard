@@ -50,7 +50,7 @@ impl Ping {
         if !message.contains("ping") {
             return;
         }
-        self.webex.respond(parent_message, "pong").await;
+        self.webex.respond("pong", parent_message).await;
     }
 
     async fn run(&self) {

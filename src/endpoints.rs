@@ -138,7 +138,7 @@ impl Endpoints {
             );
             response.push_str(s.as_str());
         }
-        self.webex.respond(parent_message, &response).await;
+        self.webex.respond(&response, parent_message).await;
     }
 }
 

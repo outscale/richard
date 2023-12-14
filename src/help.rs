@@ -59,8 +59,8 @@ impl Help {
         }
         self.webex
             .respond(
-                parent_message,
                 "available commands are: ping, status, roll, help",
+                parent_message
             )
             .await;
     }

@@ -113,7 +113,7 @@ impl WebexAgent {
         };
     }
 
-    pub async fn respond(&self, parent: &str, message: &str) {
+    pub async fn respond(&self, message: &str, parent: &str) {
         let request = WebexQuery {
             room_id: self.room_id.clone(),
             parent_id: parent.into(),

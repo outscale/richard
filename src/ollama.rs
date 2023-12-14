@@ -90,7 +90,7 @@ impl Ollama {
         }
 
         match self.query(message).await {
-            Ok(message) => self.webex.respond(parent_message, &message).await,
+            Ok(message) => self.webex.respond(&message, parent_message).await,
             Err(err) => error!("ollama responded: {:#?}", err),
         };
     }
