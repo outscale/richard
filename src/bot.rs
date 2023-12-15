@@ -215,12 +215,12 @@ impl Bot {
         match env::var(&env_var_name) {
             Ok(env_var_value) => {
                 trace!(
-                    "module {}: env {} is set to {}",
+                    "module {}: env {} is set to '{}'",
                     env_var_name,
                     module_name,
                     env_var_value
                 );
-                !env_var_value.is_empty()
+                matches!(env_var_value.as_str(), "1" | "true")
             }
             Err(_) => {
                 trace!(
