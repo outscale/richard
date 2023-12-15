@@ -27,8 +27,8 @@ impl Module for Hello {
             self.has_skipped_first_time = true;
             return;
         }
-        const RMS_QUOTES: &[&str] = &include!("rms_quotes.rs");
-        const OTHER_QUOTES: &[(&str, &str)] = &include!("quotes.rs");
+        const RMS_QUOTES: &[&str] = &include!("hello_quotes_rms.rs");
+        const OTHER_QUOTES: &[(&str, &str)] = &include!("hello_quotes.rs");
         let all_quotes = OTHER_QUOTES
             .iter()
             .copied()
