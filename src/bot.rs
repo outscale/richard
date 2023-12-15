@@ -9,7 +9,7 @@ use crate::roll::Roll;
 use crate::triggers::Triggers;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
-use log::error;
+use log::{error, trace};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -154,6 +154,7 @@ impl Bot {
         for module in self.modules.iter() {
             let mut module_rw = module.write().await;
             let variations_cooldown_durations = module_rw.variation_durations().await;
+            let module_name = module_rw.name();
             drop(module_rw);
             for (variation, duration) in variations_cooldown_durations.iter().enumerate() {
                 let module = module.clone();
@@ -161,9 +162,18 @@ impl Bot {
                 tasks.spawn(tokio::spawn(async move {
                     let module = module.clone();
                     loop {
+                        trace!("get module {} lock ...", module_name);
                         let mut module_rw = module.write().await;
+                        trace!("module {} lock aquired", module_name);
+                        trace!("module {} run variation {}", module_name, variation);
                         module_rw.run(variation).await;
                         drop(module_rw);
+                        trace!(
+                            "module {} run variation {} is now sleeping for {:#?}",
+                            module_name,
+                            variation,
+                            duration
+                        );
                         sleep(duration).await;
                     }
                 }));
