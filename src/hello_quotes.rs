@@ -19,4 +19,5 @@
     ("Lydia Whitmore", "Collaborating is actually one of the strongest things you can do – to open yourself and your ideas up to someone else’s perspective."),
     ("Amit Ray", "Collaboration has no hierarchy. The Sun collaborates with soil to bring flowers on the earth."),
     ("Louisa May Alcott", "It takes two flints to make a fire."),
+    ("Gabe Newell", "Late is just for a little while. Suck is forever right? We could try to force this thing (half-life) out the door, but that's not the company we want to be. That's not the people we want to be."),
 ]
