@@ -52,9 +52,8 @@ impl Module for Triggers {
         };
         for message in new_messages.items {
             for module in self.all_modules.iter() {
-                if let Ok(mut module_rw) = module.module.try_write() {
-                    module_rw.trigger(&message.text, &message.id).await;
-                }
+                let mut module_rw = module.module.write().await;
+                module_rw.trigger(&message.text, &message.id).await;
             }
         }
     }

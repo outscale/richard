@@ -70,6 +70,7 @@ impl Module for Endpoints {
 
     async fn trigger(&mut self, message: &str, id: &str) {
         if !message.contains("/status") {
+            trace!("ignoring message");
             return;
         }
         trace!("responding to /status");
