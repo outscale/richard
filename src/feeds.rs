@@ -56,7 +56,7 @@ impl Module for Feeds {
             info!("we have {} new feed entries", messages.len());
         }
         for msg in messages {
-            self.webex.say(msg).await;
+            self.webex.say_markdown(msg).await;
         }
     }
 
@@ -112,7 +112,7 @@ impl Feed {
             (None, Some(_)) => false,
             (Some(_), None) => false,
         };
-        if changed {
+        if new_entry.is_some() {
             self.latest = new_entry;
         }
         changed
