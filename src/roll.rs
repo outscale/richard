@@ -36,7 +36,7 @@ impl Module for Roll {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("roll") {
+        if !message.contains("/roll") {
             return;
         }
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
@@ -53,7 +53,7 @@ impl Roll {
 
     fn gen(request: &String) -> Option<String> {
         trace!("asking to roll {}", request);
-        let first_item_after_roll = request.split("roll").nth(1)?;
+        let first_item_after_roll = request.split("/roll").nth(1)?;
         let dices = first_item_after_roll.split(' ').nth(1)?;
         trace!("dices: {}", dices);
 

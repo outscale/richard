@@ -14,11 +14,10 @@ It get into a room and speak whenever he wants.
 ## Commands
 
 Commands are read when Richard is notified in the configured room.
-- `ping`: respond `pong`
-- `status`: provide region status
-- `emacs`: don't trigger this
-- `roll <dices>`: roll dices where `<dice>` is formated like `1d20` (1 dice of 20 faces)
-- `help`: show all available commands
+- `/ping`: respond `pong`
+- `/status`: provide region status
+- `/roll <dices>`: roll dices where `<dice>` is formated like `1d20` (1 dice of 20 faces)
+- `/help`: show all available commands
 
 # Build
 

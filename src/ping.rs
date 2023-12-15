@@ -29,7 +29,7 @@ impl Module for Ping {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("ping") {
+        if !message.contains("/ping") {
             trace!("ignoring message {}", message);
             return;
         }

@@ -69,7 +69,7 @@ impl Module for Endpoints {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("status") {
+        if !message.contains("/status") {
             return;
         }
         let mut response = String::new();

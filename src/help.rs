@@ -29,7 +29,7 @@ impl Module for Help {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("help") {
+        if !message.contains("/help") {
             trace!("ignoring message {}", message);
             return;
         }

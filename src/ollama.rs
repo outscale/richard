@@ -40,7 +40,7 @@ impl Module for Ollama {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        let keywords = vec!["status", "help", "ping", "roll"];
+        let keywords = vec!["/status", "/help", "/ping", "/roll"];
         for keyword in keywords {
             if message.contains(keyword) {
                 return;
