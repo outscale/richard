@@ -1,5 +1,7 @@
+use crate::bot::{Module, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
 use log::error;
 use log::trace;
 use reqwest::Client;
@@ -14,9 +16,6 @@ pub struct Ollama {
     webex: WebexAgent,
 }
 
-use crate::bot::{Module, ModuleParam, SharedModule};
-use async_trait::async_trait;
-
 #[async_trait]
 impl Module for Ollama {
     fn name(&self) -> &'static str {
@@ -27,7 +26,7 @@ impl Module for Ollama {
         webex::params()
     }
 
-    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn has_needed_params(&self) -> bool {
         true
@@ -48,7 +47,12 @@ impl Module for Ollama {
         }
         match self.query(message).await {
             Ok(message) => self.webex.respond(&message, id).await,
-            Err(err) => error!("ollama responded: {:#?}", err),
+            Err(err) => {
+                error!("ollama responded: {:#?}", err);
+                self.webex
+                    .respond("Sorry, I can't respond to that right now.", id)
+                    .await
+            }
         };
     }
 }

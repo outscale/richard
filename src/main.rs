@@ -22,7 +22,7 @@ mod webpages;
 #[tokio::main]
 pub async fn main() {
     env_logger::init();
-    let mut bot = Bot::new();
+    let mut bot = Bot::new().await;
 
     let matches = command!()
         .arg(

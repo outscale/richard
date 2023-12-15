@@ -1,6 +1,8 @@
+use crate::bot::{Module, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
 use feed_rs::model;
 use feed_rs::parser::parse;
 use log::{error, info};
@@ -14,9 +16,6 @@ pub struct Feeds {
     feeds: Vec<Feed>,
     webex: WebexAgent,
 }
-
-use crate::bot::{Module, ModuleParam, SharedModule};
-use async_trait::async_trait;
 
 #[async_trait]
 impl Module for Feeds {
@@ -35,7 +34,7 @@ impl Module for Feeds {
         .concat()
     }
 
-    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn has_needed_params(&self) -> bool {
         true

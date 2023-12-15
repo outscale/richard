@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::bot::{Module, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -9,7 +9,7 @@ use tokio::time::Duration;
 #[derive(Clone)]
 pub struct Triggers {
     webex: WebexAgent,
-    all_modules: Vec<SharedModule>,
+    all_modules: Vec<ModuleData>,
 }
 
 impl Triggers {
@@ -30,8 +30,12 @@ impl Module for Triggers {
         webex::params()
     }
 
-    async fn module_offering(&mut self, modules: &[SharedModule]) {
-        self.all_modules = Vec::from(modules);
+    async fn module_offering(&mut self, modules: &[ModuleData]) {
+        self.all_modules = modules
+            .iter()
+            .filter(|module| module.name != "triggers")
+            .cloned()
+            .collect();
     }
 
     async fn has_needed_params(&self) -> bool {
@@ -48,8 +52,9 @@ impl Module for Triggers {
         };
         for message in new_messages.items {
             for module in self.all_modules.iter() {
-                let mut module_rw = module.write().await;
-                module_rw.trigger(&message.text, &message.id).await;
+                if let Ok(mut module_rw) = module.module.try_write() {
+                    module_rw.trigger(&message.text, &message.id).await;
+                }
             }
         }
     }

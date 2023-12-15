@@ -1,5 +1,7 @@
+use crate::bot::{Module, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
+use async_trait::async_trait;
 use log::trace;
 use rand::Rng;
 use std::env::VarError;
@@ -9,9 +11,6 @@ use tokio::time::Duration;
 pub struct Roll {
     webex: WebexAgent,
 }
-
-use crate::bot::{Module, ModuleParam, SharedModule};
-use async_trait::async_trait;
 
 #[async_trait]
 impl Module for Roll {
@@ -23,7 +22,7 @@ impl Module for Roll {
         webex::params()
     }
 
-    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn has_needed_params(&self) -> bool {
         true

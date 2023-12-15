@@ -38,7 +38,7 @@ impl ModuleParam {
 pub trait Module {
     fn name(&self) -> &'static str;
     fn params(&self) -> Vec<ModuleParam>;
-    async fn module_offering(&mut self, modules: &[SharedModule]);
+    async fn module_offering(&mut self, modules: &[ModuleData]);
     async fn has_needed_params(&self) -> bool;
     async fn run(&mut self, variation: usize); // alternative to `variation`?
     async fn variation_durations(&mut self) -> Vec<Duration>;
@@ -46,54 +46,78 @@ pub trait Module {
 }
 
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
+
+#[derive(Clone)]
+pub struct ModuleData {
+    pub module: SharedModule,
+    pub name: String,
+    pub variation_durations: Vec<Duration>,
+    pub params: Vec<ModuleParam>,
+}
+
+impl ModuleData {
+    async fn new<M: Module + Send + Sync + 'static>(mut module: M) -> ModuleData {
+        let name = String::from(module.name());
+        let variation_durations = module.variation_durations().await;
+        let params = module.params();
+        let module: SharedModule = Arc::new(RwLock::new(Box::new(module)));
+        ModuleData {
+            module,
+            name,
+            variation_durations,
+            params,
+        }
+    }
+}
+
 pub struct Bot {
-    modules: Vec<SharedModule>,
+    modules: Vec<ModuleData>,
 }
 
 impl Bot {
-    pub fn new() -> Bot {
+    pub async fn new() -> Bot {
         let mut bot = Bot {
             modules: Vec::new(),
         };
         if Bot::is_module_enabled("ping") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Ping::new().unwrap()))));
+                .push(ModuleData::new(Ping::new().unwrap()).await);
         }
         if Bot::is_module_enabled("help") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Help::new().unwrap()))));
+                .push(ModuleData::new(Help::new().unwrap()).await);
         }
         if Bot::is_module_enabled("triggers") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Triggers::new().unwrap()))));
+                .push(ModuleData::new(Triggers::new().unwrap()).await);
         }
         if Bot::is_module_enabled("endpoints") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Endpoints::new().unwrap()))));
+                .push(ModuleData::new(Endpoints::new().unwrap()).await);
         }
         if Bot::is_module_enabled("github") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Github::new().unwrap()))));
+                .push(ModuleData::new(Github::new().unwrap()).await);
         }
         if Bot::is_module_enabled("hello") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Hello::new().unwrap()))));
+                .push(ModuleData::new(Hello::new().unwrap()).await);
         }
         if Bot::is_module_enabled("ollama") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Ollama::new().unwrap()))));
+                .push(ModuleData::new(Ollama::new().unwrap()).await);
         }
         if Bot::is_module_enabled("feeds") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Feeds::new().unwrap()))));
+                .push(ModuleData::new(Feeds::new().unwrap()).await);
         }
         if Bot::is_module_enabled("roll") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Roll::new().unwrap()))));
+                .push(ModuleData::new(Roll::new().unwrap()).await);
         }
         if Bot::is_module_enabled("webpages") {
             bot.modules
-                .push(Arc::new(RwLock::new(Box::new(Webpages::new().unwrap()))));
+                .push(ModuleData::new(Webpages::new().unwrap()).await);
         }
         bot
     }
@@ -101,14 +125,10 @@ impl Bot {
     pub async fn ready(&mut self) -> bool {
         let mut ret = true;
         for module in self.modules.iter() {
-            let module_ro = module.read().await;
-            let name = module_ro.name();
-            let params = module_ro.params();
-            drop(module_ro);
-            if params.is_empty() {
+            if module.params.is_empty() {
                 continue;
             }
-            for param in params {
+            for param in module.params.iter() {
                 if param.optional {
                     continue;
                 }
@@ -117,7 +137,7 @@ impl Bot {
                         if value.is_empty() {
                             error!(
                                 "module {} need mandatory environment variable {}",
-                                name, param.name
+                                module.name, param.name
                             );
                             ret = false;
                         }
@@ -125,7 +145,7 @@ impl Bot {
                     Err(_) => {
                         error!(
                             "module {} need mandatory environment variable {}",
-                            name, param.name
+                            module.name, param.name
                         );
                         ret = false;
                     }
@@ -137,7 +157,7 @@ impl Bot {
 
     async fn send_modules(&self) {
         for module in self.modules.iter() {
-            let mut module_rw = module.write().await;
+            let mut module_rw = module.module.write().await;
             module_rw.module_offering(&self.modules).await;
         }
     }
@@ -145,20 +165,16 @@ impl Bot {
     pub async fn help(&self) -> String {
         let mut output = String::new();
         for module in self.modules.iter() {
-            let module_ro = module.read().await;
-            let name = module_ro.name();
-            let params = module_ro.params();
-            drop(module_ro);
-            output.push_str(format!("# '{name}' module parameters\n").as_str());
+            output.push_str(format!("# '{}' module parameters\n", module.name).as_str());
             output.push_str(
                 format!(
                     "- BOT_MODULE_{}_ENABLED: enable module {} (optional: false)\n",
-                    name.to_uppercase(),
-                    name
+                    module.name.to_uppercase(),
+                    module.name
                 )
                 .as_str(),
             );
-            for param in params {
+            for param in module.params.iter() {
                 output.push_str(
                     format!(
                         "- {}: {} (optional: {})\n",
@@ -179,26 +195,22 @@ impl Bot {
         }
         self.send_modules().await;
         let mut tasks = JoinSet::new();
-        for module in self.modules.iter() {
-            let mut module_rw = module.write().await;
-            let variations_cooldown_durations = module_rw.variation_durations().await;
-            let module_name = module_rw.name();
-            drop(module_rw);
-            for (variation, duration) in variations_cooldown_durations.iter().enumerate() {
+        for module in self.modules.iter_mut() {
+            for (variation, duration) in module.variation_durations.iter().enumerate() {
                 let module = module.clone();
                 let duration = *duration;
                 tasks.spawn(tokio::spawn(async move {
                     let module = module.clone();
                     loop {
-                        trace!("get module {} lock ...", module_name);
-                        let mut module_rw = module.write().await;
-                        trace!("module {} lock aquired", module_name);
-                        trace!("module {} run variation {}", module_name, variation);
+                        trace!("get module {} lock ...", module.name);
+                        let mut module_rw = module.module.write().await;
+                        trace!("module {} lock aquired", module.name);
+                        trace!("module {} run variation {}", module.name, variation);
                         module_rw.run(variation).await;
                         drop(module_rw);
                         trace!(
                             "module {} run variation {} is now sleeping for {:#?}",
-                            module_name,
+                            module.name,
                             variation,
                             duration
                         );

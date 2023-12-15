@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::bot::{Module, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -20,7 +20,7 @@ impl Module for Webpages {
         webex::params()
     }
 
-    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn has_needed_params(&self) -> bool {
         true

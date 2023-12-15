@@ -10,7 +10,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 pub type ReleaseHash = u64;
-use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::bot::{Module, ModuleData, ModuleParam};
 use crate::webex;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
@@ -40,7 +40,7 @@ impl Module for Github {
         .concat()
     }
 
-    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn has_needed_params(&self) -> bool {
         true

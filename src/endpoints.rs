@@ -9,7 +9,7 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{Module, ModuleParam, SharedModule};
+use crate::bot::{Module, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -45,7 +45,7 @@ impl Module for Endpoints {
         .concat()
     }
 
-    async fn module_offering(&mut self, _modules: &[SharedModule]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn has_needed_params(&self) -> bool {
         true
@@ -72,6 +72,7 @@ impl Module for Endpoints {
         if !message.contains("/status") {
             return;
         }
+        trace!("responding to /status");
         let mut response = String::new();
         for e in &self.endpoints {
             let version = match &e.version {
