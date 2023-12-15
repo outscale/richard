@@ -32,32 +32,13 @@ If you need to have a static binary:
 
 # Configure
 
-Parameters are passed through environment variables.
+Parameters are passed through environment variables. See [config.env.ori](./config.env.ori) example.
 Use `--show-params` flag to print all needed var env per modules
-
-## All variables
-
-- `WEBEX_TOKEN`: token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).
-- `WEBEX_ROOM_ID`: you can get room id by listing rooms (see below)
-- `GITHUB_TOKEN`: Your Personal Access Token (PAT). See how to create a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token) with `public_repo,read:org`
-- `RUST_LOG`: log level to use. example: `RUST_LOG=debug`. More details on [env_logger](https://docs.rs/env_logger/latest/env_logger/).
-
-You can configure many regions (up to 100). Each region has a number starting from 0 to 99:
-- `REGION_0_NAME`: friendly name for this region (e.g. "eu-west-2")
-- `REGION_0_ENDPOINT`: whole endpoint URL (e.g. "https://api.eu-west-2.outscale.com/api/v1/")
-
-You can configure many news feed (up to 100). Each feed has a number starting from 0 to 99:
-- `FEED_0_NAME`: friendly name for this feed (e.g. "The Hacker News")
-- `FEED_0_URL`: Atom, RSS or JSON feed URL (e.g. "https://feeds.feedburner.com/TheHackersNews")
 
 As a facility, you can:
 1. copy `config.env.ori` to `config.env`
 2. edit `config.env`
 3. load options by running `source config.env`
-
-## Listing room ids and details
-
-curl -H "Authorization: Bearer ${WEBEX_TOKEN}" "https://webexapis.com/v1/rooms" | jq
 
 # Run
 
@@ -65,11 +46,3 @@ curl -H "Authorization: Bearer ${WEBEX_TOKEN}" "https://webexapis.com/v1/rooms" 
 2. set configuration
 3. `./richard`
 
-# Test
-
-1. set configuration
-2. `cargo test`
-
-# External resources
-
-- [Webex API reference](https://developer.webex.com/docs/api/basics)

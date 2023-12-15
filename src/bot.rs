@@ -55,26 +55,46 @@ impl Bot {
         let mut bot = Bot {
             modules: Vec::new(),
         };
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Ping::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Help::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Triggers::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Endpoints::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Github::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Hello::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Ollama::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Feeds::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Roll::new().unwrap()))));
-        bot.modules
-            .push(Arc::new(RwLock::new(Box::new(Webpages::new().unwrap()))));
+        if Bot::is_module_enabled("ping") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Ping::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("help") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Help::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("triggers") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Triggers::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("endpoints") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Endpoints::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("github") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Github::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("hello") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Hello::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("ollama") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Ollama::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("feeds") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Feeds::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("roll") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Roll::new().unwrap()))));
+        }
+        if Bot::is_module_enabled("webpages") {
+            bot.modules
+                .push(Arc::new(RwLock::new(Box::new(Webpages::new().unwrap()))));
+        }
         bot
     }
 
@@ -130,10 +150,14 @@ impl Bot {
             let params = module_ro.params();
             drop(module_ro);
             output.push_str(format!("# '{name}' module parameters\n").as_str());
-            if params.is_empty() {
-                output.push_str("  [no parameter]\n\n");
-                continue;
-            }
+            output.push_str(
+                format!(
+                    "- BOT_MODULE_{}_ENABLED: enable module {} (optional: false)\n",
+                    name.to_uppercase(),
+                    name
+                )
+                .as_str(),
+            );
             for param in params {
                 output.push_str(
                     format!(
@@ -149,6 +173,10 @@ impl Bot {
     }
 
     pub async fn run(&mut self) {
+        if self.modules.is_empty() {
+            error!("no module enabled");
+            return;
+        }
         self.send_modules().await;
         let mut tasks = JoinSet::new();
         for module in self.modules.iter() {
@@ -180,5 +208,28 @@ impl Bot {
             }
         }
         tasks.join_next().await;
+    }
+
+    fn is_module_enabled(module_name: &str) -> bool {
+        let env_var_name = format!("BOT_MODULE_{}_ENABLED", module_name.to_uppercase());
+        match env::var(&env_var_name) {
+            Ok(env_var_value) => {
+                trace!(
+                    "module {}: env {} is set to {}",
+                    env_var_name,
+                    module_name,
+                    env_var_value
+                );
+                !env_var_value.is_empty()
+            }
+            Err(_) => {
+                trace!(
+                    "{} env variable not defined. Module {} is disabled",
+                    env_var_name,
+                    module_name
+                );
+                false
+            }
+        }
     }
 }
