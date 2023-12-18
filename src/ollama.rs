@@ -6,6 +6,7 @@ use log::error;
 use log::trace;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::{env::VarError, error::Error, time::Duration};
 
 #[derive(Clone)]
@@ -23,7 +24,14 @@ impl Module for Ollama {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        webex::params()
+        [
+            webex::params(),
+            vec![
+                ModuleParam::new("OLLAMA_MODEL_NAME", "Ollama model name to use", true),
+                ModuleParam::new("OLLAMA_URL", "ollama URL to query", true),
+            ],
+        ]
+        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -60,8 +68,8 @@ impl Module for Ollama {
 impl Ollama {
     pub fn new() -> Result<Ollama, VarError> {
         Ok(Ollama {
-            model: "richard".to_string(),
-            endpoint: "http://localhost:11434".to_string(),
+            model: env::var("OLLAMA_MODEL_NAME")?,
+            endpoint: env::var("OLLAMA_URL")?,
             context: Vec::new(),
             webex: WebexAgent::new()?,
         })
