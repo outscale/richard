@@ -1,6 +1,7 @@
 use crate::endpoints::Endpoints;
 use crate::feeds::Feeds;
-use crate::github::Github;
+use crate::github_orgs::GithubOrgs;
+use crate::github_repos::GithubRepos;
 use crate::hello::Hello;
 use crate::help::Help;
 use crate::ollama::Ollama;
@@ -10,6 +11,7 @@ use crate::triggers::Triggers;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
 use log::{error, trace};
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
@@ -95,9 +97,13 @@ impl Bot {
             bot.modules
                 .push(ModuleData::new(Endpoints::new().unwrap()).await);
         }
-        if Bot::is_module_enabled("github") {
+        if Bot::is_module_enabled("github_orgs") {
             bot.modules
-                .push(ModuleData::new(Github::new().unwrap()).await);
+                .push(ModuleData::new(GithubOrgs::new().unwrap()).await);
+        }
+        if Bot::is_module_enabled("github_repos") {
+            bot.modules
+                .push(ModuleData::new(GithubRepos::new().unwrap()).await);
         }
         if Bot::is_module_enabled("hello") {
             bot.modules
@@ -174,11 +180,19 @@ impl Bot {
                 )
                 .as_str(),
             );
-            for param in module.params.iter() {
+            let param_map = module.params.iter().fold(
+                HashMap::<String, ModuleParam>::new(),
+                |mut map, param| {
+                    map.insert(param.name.clone(), param.clone());
+                    map
+                },
+            );
+
+            for (param_name, param) in param_map.iter() {
                 output.push_str(
                     format!(
                         "- {}: {} (optional: {})\n",
-                        param.name, param.description, param.optional
+                        param_name, param.description, param.optional
                     )
                     .as_str(),
                 );

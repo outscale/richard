@@ -15,7 +15,7 @@ pub fn params() -> Vec<ModuleParam> {
     ]
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct WebexAgent {
     auth_header: String,
     room_id: String,
