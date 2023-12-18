@@ -3,12 +3,10 @@ use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
-use log::error;
+use log::{error, info};
+use std::env;
 use std::env::VarError;
 use tokio::time::Duration;
-
-static API_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Home.html";
-static OMI_DOC_URL: &str = "https://docs.outscale.com/en/userguide/Official-OMIs-Reference.html";
 
 #[async_trait]
 impl Module for Webpages {
@@ -17,7 +15,22 @@ impl Module for Webpages {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        webex::params()
+        [
+            webex::params(),
+            vec![
+                ModuleParam::new(
+                    "WEBPAGES_0_NAME",
+                    "Webpage name, can be multiple (0..)",
+                    false,
+                ),
+                ModuleParam::new(
+                    "WEBPAGES_0_URL",
+                    "Webpage URL, can be multiple (0..)",
+                    false,
+                ),
+            ],
+        ]
+        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -29,14 +42,14 @@ impl Module for Webpages {
     async fn run(&mut self, _variation: usize) {
         for page in self.pages.iter_mut() {
             if page.changed().await {
-                let message = format!("{} has changed ({})", page.name, page.url);
-                self.webex.say(message).await;
+                let message = format!("[{}]({}) has changed", page.name, page.url);
+                self.webex.say_markdown(message).await;
             }
         }
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
-        vec![Duration::from_secs(600)]
+        vec![Duration::from_secs(60)]
     }
 
     async fn trigger(&mut self, _message: &str, _id: &str) {}
@@ -50,14 +63,22 @@ pub struct Webpages {
 
 impl Webpages {
     pub fn new() -> Result<Self, VarError> {
-        let webpages = Webpages {
-            // TODO: set by env var listing
-            pages: vec![
-                Webpage::new("Documentation front page", API_DOC_URL),
-                Webpage::new("OMI page", OMI_DOC_URL),
-            ],
+        let mut webpages = Webpages {
+            pages: Vec::new(),
             webex: WebexAgent::new()?,
         };
+        for i in 0..100 {
+            let name = env::var(&format!("WEBPAGES_{}_NAME", i));
+            let url = env::var(&format!("WEBPAGES_{}_URL", i));
+            match (name, url) {
+                (Ok(name), Ok(url)) => {
+                    info!("webpage configured: '{}' on url '{}'", name, url);
+                    let new_webpage = Webpage::new(name.as_str(), url.as_str());
+                    webpages.pages.push(new_webpage);
+                }
+                _ => break,
+            }
+        }
         Ok(webpages)
     }
 }
@@ -86,7 +107,7 @@ impl Webpage {
                 return false;
             }
         };
-        let result = match agent.get(API_DOC_URL).send().await {
+        let result = match agent.get(self.url.clone()).send().await {
             Ok(res) => res,
             Err(err) => {
                 error!("{:#?}", err);
