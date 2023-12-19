@@ -1,4 +1,4 @@
-use crate::endpoints::Endpoints;
+use crate::down_detectors::DownDetectors;
 use crate::feeds::Feeds;
 use crate::github_orgs::GithubOrgs;
 use crate::github_repos::GithubRepos;
@@ -94,9 +94,9 @@ impl Bot {
             bot.modules
                 .push(ModuleData::new(Triggers::new().unwrap()).await);
         }
-        if Bot::is_module_enabled("endpoints") {
+        if Bot::is_module_enabled("down_detectors") {
             bot.modules
-                .push(ModuleData::new(Endpoints::new().unwrap()).await);
+                .push(ModuleData::new(DownDetectors::new().unwrap()).await);
         }
         if Bot::is_module_enabled("github_orgs") {
             bot.modules

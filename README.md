@@ -11,7 +11,7 @@ Available modules:
 - ping: responds to /ping commands with "pong"
 - help: responds to /help command
 - triggers: allow commands to be sent to all other modules
-- endpoints: watch for Outscale API endpoints
+- down_detectors: watch for one or more URL. Alert when target goes down
 - github_orgs: watch for all releases of all repositories of one or more github organisation
 - github_repos: watch one or more specific githib repositories, trigger message on new release
 - hello: send a random quote at a specific time interval

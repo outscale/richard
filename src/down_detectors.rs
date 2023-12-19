@@ -14,15 +14,15 @@ use async_trait::async_trait;
 const HIGH_ERROR_RATE: f32 = 0.1;
 
 #[derive(Clone)]
-pub struct Endpoints {
+pub struct DownDetectors {
     webex: WebexAgent,
-    endpoints: Vec<Endpoint>,
+    watch_list: Vec<DownDetector>,
 }
 
 #[async_trait]
-impl Module for Endpoints {
+impl Module for DownDetectors {
     fn name(&self) -> &'static str {
-        "endpoints"
+        "down_detectors"
     }
 
     fn params(&self) -> Vec<ModuleParam> {
@@ -30,13 +30,13 @@ impl Module for Endpoints {
             webex::params(),
             vec![
                 ModuleParam::new(
-                    "REGION_0_NAME",
-                    "Outscale region name of the endpoints, can be multiple (0..)",
+                    "DOWN_DETECTORS_0_NAME",
+                    "Friendly name of what is watched, can be multiple (0..)",
                     false,
                 ),
                 ModuleParam::new(
-                    "REGION_0_ENDPOINT",
-                    "Outscale region endpoint, can be multiple (0..)",
+                    "DOWN_DETECTORS_0_URL",
+                    "URL of what is watched, can be multiple (0..)",
                     false,
                 ),
             ],
@@ -69,7 +69,7 @@ impl Module for Endpoints {
         }
         trace!("responding to /status");
         let mut response = String::new();
-        for e in &self.endpoints {
+        for e in &self.watch_list {
             let s = format!(
                 "{}: alive={}, error_rate={}\n",
                 e.name, e.alive, e.error_rate
@@ -80,34 +80,34 @@ impl Module for Endpoints {
     }
 }
 
-impl Endpoints {
-    pub fn new() -> Result<Endpoints, VarError> {
-        let mut endpoints = Endpoints {
-            endpoints: Vec::new(),
+impl DownDetectors {
+    pub fn new() -> Result<DownDetectors, VarError> {
+        let mut down_detectors = DownDetectors {
+            watch_list: Vec::new(),
             webex: WebexAgent::new()?,
         };
         for i in 0..100 {
-            let name = env::var(&format!("REGION_{}_NAME", i));
-            let endpoint = env::var(&format!("REGION_{}_ENDPOINT", i));
-            match (name, endpoint) {
-                (Ok(name), Ok(endpoint)) => {
-                    info!("endpoint {} configured", name);
-                    let new = Endpoint::new(name, endpoint);
-                    endpoints.endpoints.push(new);
+            let name = env::var(&format!("DOWN_DETECTORS_{}_NAME", i));
+            let url = env::var(&format!("DOWN_DETECTORS_{}_URL", i));
+            match (name, url) {
+                (Ok(name), Ok(url)) => {
+                    info!("down detector on {} configured", name);
+                    let new = DownDetector::new(name, url);
+                    down_detectors.watch_list.push(new);
                 }
                 _ => break,
             }
         }
-        Ok(endpoints)
+        Ok(down_detectors)
     }
 
     async fn run_error_rate(&mut self) {
-        for endpoint in self.endpoints.iter_mut() {
-            if let Some(error_rate) = endpoint.update_error_rate().await {
+        for down_detector in self.watch_list.iter_mut() {
+            if let Some(error_rate) = down_detector.update_error_rate().await {
                 if error_rate > HIGH_ERROR_RATE {
                     warn!(
                         "high error rate on {}: {:?}%",
-                        endpoint.name,
+                        down_detector.name,
                         (error_rate * 100.0) as u32
                     );
                 }
@@ -117,8 +117,8 @@ impl Endpoints {
 
     async fn run_alive(&mut self) {
         let mut messages = Vec::<String>::new();
-        for endpoint in self.endpoints.iter_mut() {
-            if let Some(response) = endpoint.alive().await {
+        for down_detector in self.watch_list.iter_mut() {
+            if let Some(response) = down_detector.alive().await {
                 messages.push(response);
             }
         }
@@ -127,22 +127,22 @@ impl Endpoints {
 }
 
 #[derive(Clone)]
-struct Endpoint {
+struct DownDetector {
     name: String,
-    endpoint: String,
+    url: String,
     alive: bool,
     access_failure_cnt: u8,
-    last_error: Option<EndpointError>,
+    last_error: Option<DownDetectorError>,
     error_rate_acc: f32,
     error_rate_cnt: u32,
     error_rate: f32,
 }
 
-impl Endpoint {
-    fn new(name: String, endpoint: String) -> Self {
-        Endpoint {
+impl DownDetector {
+    fn new(name: String, url: String) -> Self {
+        DownDetector {
             name,
-            endpoint,
+            url,
             alive: true,
             access_failure_cnt: 0,
             last_error: None,
@@ -152,20 +152,20 @@ impl Endpoint {
         }
     }
 
-    async fn test_url(&self) -> Result<(), EndpointError> {
+    async fn test_url(&self) -> Result<(), DownDetectorError> {
         let agent = match request_agent() {
             Ok(agent) => agent,
-            Err(err) => return Err(EndpointError::AgentInit(err.to_string())),
+            Err(err) => return Err(DownDetectorError::AgentInit(err.to_string())),
         };
 
-        let response = match agent.post(&self.endpoint).send().await {
+        let response = match agent.post(&self.url).send().await {
             Ok(response) => response,
-            Err(err) => return Err(EndpointError::from_reqwest(err)),
+            Err(err) => return Err(DownDetectorError::from_reqwest(err)),
         };
 
         match response.status() {
             StatusCode::OK => Ok(()),
-            bad_code => Err(EndpointError::Code(bad_code.as_u16())),
+            bad_code => Err(DownDetectorError::Code(bad_code.as_u16())),
         }
     }
 
@@ -212,7 +212,7 @@ impl Endpoint {
         let response: Option<String> = match self.update_alive().await {
             (true, false) => match &self.last_error {
                 Some(error) => match error {
-                    EndpointError::AgentInit(err) => {
+                    DownDetectorError::AgentInit(err) => {
                         error!("{}", err.to_string());
                         None
                     }
@@ -236,28 +236,28 @@ impl Endpoint {
 }
 
 #[derive(Clone, Debug)]
-enum EndpointError {
+enum DownDetectorError {
     AgentInit(String),
     Code(u16),
     Transport(String),
 }
 
-impl EndpointError {
-    fn from_reqwest(err: reqwest::Error) -> EndpointError {
+impl DownDetectorError {
+    fn from_reqwest(err: reqwest::Error) -> DownDetectorError {
         match err.source() {
-            Some(e) => EndpointError::Transport(format!("{}, {}", err, e)),
-            None => EndpointError::Transport(err.to_string()),
+            Some(e) => DownDetectorError::Transport(format!("{}, {}", err, e)),
+            None => DownDetectorError::Transport(err.to_string()),
         }
     }
 }
 
-impl ToString for EndpointError {
+impl ToString for DownDetectorError {
     fn to_string(&self) -> String {
         match self {
-            EndpointError::AgentInit(err) => format!("Internal error: {}", err),
-            EndpointError::Code(503) => "API has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
-            EndpointError::Code(other) => format!("API is down (error code: {})", other),
-            EndpointError::Transport(transport) => format!("API seems down (transport error: {})", transport),
+            DownDetectorError::AgentInit(err) => format!("Internal error: {}", err),
+            DownDetectorError::Code(503) => "API has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
+            DownDetectorError::Code(other) => format!("API is down (error code: {})", other),
+            DownDetectorError::Transport(transport) => format!("API seems down (transport error: {})", transport),
         }
     }
 }

@@ -6,7 +6,7 @@ use log::{error, info};
 use std::process::exit;
 
 mod bot;
-mod endpoints;
+mod down_detectors;
 mod feeds;
 mod github_orgs;
 mod github_repos;
