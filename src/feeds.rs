@@ -5,7 +5,7 @@ use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use feed_rs::model;
 use feed_rs::parser::parse;
-use log::{error, info};
+use log::{error, info, warn};
 use std::cmp::Ordering;
 use std::env::{self, VarError};
 use std::error::Error;
@@ -79,6 +79,9 @@ impl Feeds {
                 }
                 _ => break,
             }
+        }
+        if feeds.feeds.is_empty() {
+            warn!("feeds module enabled bot not configuration provided");
         }
         Ok(feeds)
     }

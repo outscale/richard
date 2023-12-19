@@ -94,6 +94,9 @@ impl DownDetectors {
                 _ => break,
             }
         }
+        if down_detectors.watch_list.is_empty() {
+            warn!("down detectors module enabled bot not configuration provided");
+        }
         Ok(down_detectors)
     }
 

@@ -1,7 +1,6 @@
 use crate::utils::request_agent;
 use crate::webex::{self, WebexAgent};
-use log::info;
-use log::trace;
+use log::{info, trace, warn};
 use serde::Deserialize;
 use std::env::{self, VarError};
 use std::error::Error;
@@ -87,6 +86,9 @@ impl OutscaleApiVersions {
                 }
                 _ => break,
             }
+        }
+        if endpoints.endpoints.is_empty() {
+            warn!("outscale_api_version module enabled bot not configuration provided");
         }
         Ok(endpoints)
     }

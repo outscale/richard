@@ -3,7 +3,7 @@ use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
-use log::{error, info};
+use log::{error, info, warn};
 use std::env;
 use std::env::VarError;
 use tokio::time::Duration;
@@ -74,6 +74,9 @@ impl Webpages {
                 }
                 _ => break,
             }
+        }
+        if webpages.pages.is_empty() {
+            warn!("webpages module enabled bot not configuration provided");
         }
         Ok(webpages)
     }

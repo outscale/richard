@@ -3,7 +3,7 @@ use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;
 use crate::webex;
 use async_trait::async_trait;
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
@@ -72,6 +72,9 @@ impl GithubOrgs {
                 }
                 _ => break,
             }
+        }
+        if orgs.orgs.is_empty() {
+            warn!("github_orgs module enabled bot not configuration provided");
         }
         Ok(orgs)
     }

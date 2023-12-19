@@ -4,7 +4,7 @@ use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -76,6 +76,9 @@ impl GithubRepos {
                 }
                 _ => break,
             }
+        }
+        if github_repos.repos.is_empty() {
+            warn!("github_repos module enabled bot not configuration provided");
         }
         Ok(github_repos)
     }
