@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use log::{error, trace};
 use std::collections::HashMap;
 use std::env;
+use std::env::VarError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -77,59 +78,49 @@ pub struct Bot {
 }
 
 impl Bot {
-    pub async fn new() -> Bot {
+    pub async fn new() -> Result<Bot, VarError> {
         let mut bot = Bot {
             modules: Vec::new(),
         };
         if Bot::is_module_enabled("ping") {
-            bot.modules
-                .push(ModuleData::new(Ping::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Ping::new()?).await);
         }
         if Bot::is_module_enabled("help") {
-            bot.modules
-                .push(ModuleData::new(Help::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Help::new()?).await);
         }
         if Bot::is_module_enabled("triggers") {
-            bot.modules
-                .push(ModuleData::new(Triggers::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Triggers::new()?).await);
         }
         if Bot::is_module_enabled("down_detectors") {
             bot.modules
-                .push(ModuleData::new(DownDetectors::new().unwrap()).await);
+                .push(ModuleData::new(DownDetectors::new()?).await);
         }
         if Bot::is_module_enabled("github_orgs") {
-            bot.modules
-                .push(ModuleData::new(GithubOrgs::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(GithubOrgs::new()?).await);
         }
         if Bot::is_module_enabled("github_repos") {
-            bot.modules
-                .push(ModuleData::new(GithubRepos::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(GithubRepos::new()?).await);
         }
         if Bot::is_module_enabled("hello") {
-            bot.modules
-                .push(ModuleData::new(Hello::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Hello::new()?).await);
         }
         if Bot::is_module_enabled("ollama") {
-            bot.modules
-                .push(ModuleData::new(Ollama::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Ollama::new()?).await);
         }
         if Bot::is_module_enabled("feeds") {
-            bot.modules
-                .push(ModuleData::new(Feeds::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Feeds::new()?).await);
         }
         if Bot::is_module_enabled("roll") {
-            bot.modules
-                .push(ModuleData::new(Roll::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Roll::new()?).await);
         }
         if Bot::is_module_enabled("webpages") {
-            bot.modules
-                .push(ModuleData::new(Webpages::new().unwrap()).await);
+            bot.modules.push(ModuleData::new(Webpages::new()?).await);
         }
         if Bot::is_module_enabled("outscale_api_versions") {
             bot.modules
-                .push(ModuleData::new(OutscaleApiVersions::new().unwrap()).await);
+                .push(ModuleData::new(OutscaleApiVersions::new()?).await);
         }
-        bot
+        Ok(bot)
     }
 
     pub async fn ready(&mut self) -> bool {

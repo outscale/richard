@@ -71,7 +71,7 @@ impl GithubRepos {
             match var_fullname {
                 Ok(fullname) => {
                     info!("github repo configured: {}", fullname);
-                    let new_repo = GithubRepo::new(fullname.as_str()).unwrap();
+                    let new_repo = GithubRepo::new(fullname.as_str())?;
                     github_repos.repos.insert(fullname, new_repo);
                 }
                 _ => break,

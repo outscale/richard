@@ -24,7 +24,13 @@ mod webpages;
 #[tokio::main]
 pub async fn main() {
     env_logger::init();
-    let mut bot = Bot::new().await;
+    let mut bot = match Bot::new().await {
+        Ok(bot) => bot,
+        Err(err) => {
+            error!("missing env var: {}", err);
+            exit(1);
+        }
+    };
 
     let matches = command!()
         .arg(
