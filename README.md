@@ -5,19 +5,20 @@ It get into a room and speak whenever he wants.
 
 # Features
 
-- says hello, he is a gentleman
-- speaks when he sees a new Outscale API version on production
-- speaks when a region seems to be down or back on
-- respond to few commands
-- react when documentation page change
+Bot is modular and every module must be explicitely enabled.
 
-## Commands
-
-Commands are read when Richard is notified in the configured room.
-- `/ping`: respond `pong`
-- `/status`: provide region status
-- `/roll <dices>`: roll dices where `<dice>` is formated like `1d20` (1 dice of 20 faces)
-- `/help`: show all available commands
+Available modules:
+- ping: responds to /ping commands with "pong"
+- help: responds to /help command
+- triggers: allow commands to be sent to all other modules
+- endpoints: watch for Outscale API endpoints
+- github_orgs: watch for all releases of all repositories of one or more github organisation
+- github_repos: watch one or more specific githib repositories, trigger message on new release
+- hello: send a random quote at a specific time interval
+- ollama: interface with [ollama API](https://ollama.ai/), respond when no command is triggered
+- feeds: watch for one or more RSS feeds, alert on new items
+- roll: responds to /roll commands. e.g. /roll 1d20
+- webpages: watch for one or more webpages. Alert when page content change.
 
 # Build
 
