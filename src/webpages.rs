@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -31,6 +31,10 @@ impl Module for Webpages {
             ],
         ]
         .concat()
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities { triggers: None }
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}

@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -37,6 +37,10 @@ impl Module for Hello {
             }
         };
         self.webex.say(quote).await;
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities { triggers: None }
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

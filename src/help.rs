@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -22,6 +22,12 @@ impl Module for Help {
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
         vec![Duration::from_secs(100)]
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities {
+            triggers: Some(vec!["/help".to_string()]),
+        }
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {

@@ -43,6 +43,7 @@ pub trait Module {
     fn name(&self) -> &'static str;
     fn params(&self) -> Vec<ModuleParam>;
     async fn module_offering(&mut self, modules: &[ModuleData]);
+    fn capabilities(&self) -> ModuleCapabilities;
     async fn run(&mut self, variation: usize); // alternative to `variation`?
     async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str, id: &str);
@@ -51,11 +52,17 @@ pub trait Module {
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
 
 #[derive(Clone)]
+pub struct ModuleCapabilities {
+    pub triggers: Option<Vec<String>>,
+}
+
+#[derive(Clone)]
 pub struct ModuleData {
     pub module: SharedModule,
     pub name: String,
     pub variation_durations: Vec<Duration>,
     pub params: Vec<ModuleParam>,
+    pub capabilities: ModuleCapabilities,
 }
 
 impl ModuleData {
@@ -63,12 +70,14 @@ impl ModuleData {
         let name = String::from(module.name());
         let variation_durations = module.variation_durations().await;
         let params = module.params();
+        let capabilities = module.capabilities();
         let module: SharedModule = Arc::new(RwLock::new(Box::new(module)));
         ModuleData {
             module,
             name,
             variation_durations,
             params,
+            capabilities,
         }
     }
 }

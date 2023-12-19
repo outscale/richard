@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -49,6 +49,10 @@ impl Module for GithubRepos {
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
         vec![Duration::from_secs(3600)]
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities { triggers: None }
     }
 
     async fn trigger(&mut self, _message: &str, _id: &str) {}

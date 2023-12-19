@@ -8,7 +8,7 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -56,6 +56,12 @@ impl Module for DownDetectors {
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
         vec![Duration::from_secs(2), Duration::from_secs(2)]
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities {
+            triggers: Some(vec!["/status".to_string()]),
+        }
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
@@ -156,16 +162,16 @@ impl DownDetector {
             Ok(agent) => agent,
             Err(err) => {
                 trace!("{}: agent init: {}", self.name, err);
-                return Err(DownDetectorError::AgentInit(err.to_string()))
-            },
+                return Err(DownDetectorError::AgentInit(err.to_string()));
+            }
         };
 
         let response = match agent.get(&self.url).send().await {
             Ok(response) => response,
             Err(err) => {
                 trace!("{}: post: {}", self.name, err);
-                return Err(DownDetectorError::from_reqwest(err))
-            },
+                return Err(DownDetectorError::from_reqwest(err));
+            }
         };
 
         match response.status() {
@@ -173,7 +179,7 @@ impl DownDetector {
             bad_code => {
                 trace!("{}: {}", self.name, bad_code);
                 Err(DownDetectorError::Code(bad_code.as_u16()))
-            },
+            }
         }
     }
 

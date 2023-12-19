@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -36,6 +36,10 @@ impl Module for Triggers {
             .filter(|module| module.name != "triggers")
             .cloned()
             .collect();
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities { triggers: None }
     }
 
     async fn run(&mut self, _variation: usize) {

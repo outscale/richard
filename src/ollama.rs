@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleData, ModuleParam};
+use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -32,6 +32,12 @@ impl Module for Ollama {
             ],
         ]
         .concat()
+    }
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities {
+            triggers: Some(vec![]),
+        }
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
