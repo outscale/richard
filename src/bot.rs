@@ -24,15 +24,15 @@ use tokio::time::sleep;
 pub struct ModuleParam {
     pub name: String,
     pub description: String,
-    pub optional: bool,
+    pub mandatory: bool,
 }
 
 impl ModuleParam {
-    pub fn new(name: &str, description: &str, optional: bool) -> ModuleParam {
+    pub fn new(name: &str, description: &str, mandatory: bool) -> ModuleParam {
         ModuleParam {
             name: name.to_string(),
             description: description.to_string(),
-            optional,
+            mandatory,
         }
     }
 }
@@ -42,7 +42,6 @@ pub trait Module {
     fn name(&self) -> &'static str;
     fn params(&self) -> Vec<ModuleParam>;
     async fn module_offering(&mut self, modules: &[ModuleData]);
-    async fn has_needed_params(&self) -> bool;
     async fn run(&mut self, variation: usize); // alternative to `variation`?
     async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str, id: &str);
@@ -140,7 +139,7 @@ impl Bot {
                 continue;
             }
             for param in module.params.iter() {
-                if param.optional {
+                if !param.mandatory {
                     continue;
                 }
                 match env::var(&param.name) {
@@ -196,8 +195,8 @@ impl Bot {
             for (param_name, param) in param_map.iter() {
                 output.push_str(
                     format!(
-                        "- {}: {} (optional: {})\n",
-                        param_name, param.description, param.optional
+                        "- {}: {} (mandatory: {})\n",
+                        param_name, param.description, param.mandatory
                     )
                     .as_str(),
                 );

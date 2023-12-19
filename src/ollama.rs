@@ -36,10 +36,6 @@ impl Module for Ollama {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn has_needed_params(&self) -> bool {
-        true
-    }
-
     async fn run(&mut self, _variation: usize) {}
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

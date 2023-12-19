@@ -46,10 +46,6 @@ impl Module for DownDetectors {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn has_needed_params(&self) -> bool {
-        true
-    }
-
     async fn run(&mut self, variation: usize) {
         match variation {
             0 => self.run_error_rate().await,

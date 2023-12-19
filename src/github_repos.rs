@@ -41,10 +41,6 @@ impl Module for GithubRepos {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn has_needed_params(&self) -> bool {
-        true
-    }
-
     async fn run(&mut self, _variation: usize) {
         for (_repo_full_name, repo) in self.repos.iter_mut() {
             repo.run().await;

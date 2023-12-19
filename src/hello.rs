@@ -18,10 +18,6 @@ impl Module for Hello {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn has_needed_params(&self) -> bool {
-        true
-    }
-
     async fn run(&mut self, _variation: usize) {
         if !self.has_skipped_first_time {
             self.has_skipped_first_time = true;

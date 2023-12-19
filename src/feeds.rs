@@ -36,10 +36,6 @@ impl Module for Feeds {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn has_needed_params(&self) -> bool {
-        true
-    }
-
     async fn run(&mut self, _variation: usize) {
         let mut messages: Vec<String> = Vec::new();
         for feed in &mut self.feeds {

@@ -38,10 +38,6 @@ impl Module for Triggers {
             .collect();
     }
 
-    async fn has_needed_params(&self) -> bool {
-        true
-    }
-
     async fn run(&mut self, _variation: usize) {
         let new_messages = match self.webex.unread_messages().await {
             Ok(messages) => messages,
