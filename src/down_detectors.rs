@@ -154,17 +154,26 @@ impl DownDetector {
     async fn test_url(&self) -> Result<(), DownDetectorError> {
         let agent = match request_agent() {
             Ok(agent) => agent,
-            Err(err) => return Err(DownDetectorError::AgentInit(err.to_string())),
+            Err(err) => {
+                trace!("{}: agent init: {}", self.name, err);
+                return Err(DownDetectorError::AgentInit(err.to_string()))
+            },
         };
 
         let response = match agent.post(&self.url).send().await {
             Ok(response) => response,
-            Err(err) => return Err(DownDetectorError::from_reqwest(err)),
+            Err(err) => {
+                trace!("{}: post: {}", self.name, err);
+                return Err(DownDetectorError::from_reqwest(err))
+            },
         };
 
         match response.status() {
             StatusCode::OK => Ok(()),
-            bad_code => Err(DownDetectorError::Code(bad_code.as_u16())),
+            bad_code => {
+                trace!("{}: {}", self.name, bad_code);
+                Err(DownDetectorError::Code(bad_code.as_u16()))
+            },
         }
     }
 
