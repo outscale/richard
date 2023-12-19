@@ -215,20 +215,17 @@ impl DownDetector {
                         error!("{}", err.to_string());
                         None
                     }
-                    err => Some(format!("{} region: {}", self.name, err.to_string())),
+                    err => Some(format!("{}: {}", self.name, err.to_string())),
                 },
-                None => Some(format!(
-                    "API on {} region seems down (no reason found)",
-                    self.name
-                )),
+                None => Some(format!("{} seems down (no reason found)", self.name)),
             },
-            (false, true) => Some(format!("API on {} region is up", self.name)),
+            (false, true) => Some(format!("{} is up", self.name)),
             _ => None,
         };
         if self.alive {
-            trace!("API of {} region is alive", self.name);
+            trace!("{} is alive", self.name);
         } else {
-            warn!("API of {} region is not alive", self.name);
+            warn!("{} is not alive", self.name);
         }
         response
     }
