@@ -16,7 +16,9 @@ impl Module for Help {
         webex::params()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {
+
+    }
 
     async fn run(&mut self, _variation: usize) {}
 
@@ -31,7 +33,7 @@ impl Module for Help {
         }
         trace!("responding to help");
         self.webex
-            .respond("available commands are: ping, status, roll, help", id)
+            .respond("available commands are: ping, status, roll, help, oapi-versions", id)
             .await;
     }
 }
