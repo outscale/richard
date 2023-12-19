@@ -68,6 +68,12 @@ impl WebexAgent {
         }
     }
 
+    pub async fn say_messages_markdown(&self, messages: Vec<String>) {
+        for message in messages.iter() {
+            self.say_markdown(message).await;
+        }
+    }
+
     pub async fn say<S: Into<String>>(&self, message: S) {
         self.say_generic(message, false).await;
     }

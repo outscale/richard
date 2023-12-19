@@ -123,7 +123,7 @@ impl DownDetectors {
                 messages.push(response);
             }
         }
-        self.webex.say_messages(messages).await;
+        self.webex.say_messages_markdown(messages).await;
     }
 }
 
@@ -226,11 +226,11 @@ impl DownDetector {
                         error!("{}", err.to_string());
                         None
                     }
-                    err => Some(format!("{}: {}", self.name, err.to_string())),
+                    err => Some(format!("[{}]({}): {}", self.name, self.url, err.to_string())),
                 },
-                None => Some(format!("{} seems down (no reason found)", self.name)),
+                None => Some(format!("[{}]({}) seems down (no reason found)", self.name, self.url)),
             },
-            (false, true) => Some(format!("{} is up", self.name)),
+            (false, true) => Some(format!("[{}]({}) is up", self.name, self.url)),
             _ => None,
         };
         if self.alive {
