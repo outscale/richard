@@ -11,7 +11,7 @@ use crate::roll::Roll;
 use crate::triggers::Triggers;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
-use log::{error, trace};
+use log::{error, info, trace};
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
@@ -73,87 +73,48 @@ impl ModuleData {
     }
 }
 
+#[derive(Default)]
 pub struct Bot {
     modules: Vec<ModuleData>,
 }
 
 impl Bot {
-    pub async fn new() -> Result<Bot, VarError> {
-        let mut bot = Bot {
-            modules: Vec::new(),
-        };
-        if Bot::is_module_enabled("ping") {
-            bot.modules.push(ModuleData::new(Ping::new()?).await);
-        }
-        if Bot::is_module_enabled("help") {
-            bot.modules.push(ModuleData::new(Help::new()?).await);
-        }
-        if Bot::is_module_enabled("triggers") {
-            bot.modules.push(ModuleData::new(Triggers::new()?).await);
-        }
-        if Bot::is_module_enabled("down_detectors") {
-            bot.modules
-                .push(ModuleData::new(DownDetectors::new()?).await);
-        }
-        if Bot::is_module_enabled("github_orgs") {
-            bot.modules.push(ModuleData::new(GithubOrgs::new()?).await);
-        }
-        if Bot::is_module_enabled("github_repos") {
-            bot.modules.push(ModuleData::new(GithubRepos::new()?).await);
-        }
-        if Bot::is_module_enabled("hello") {
-            bot.modules.push(ModuleData::new(Hello::new()?).await);
-        }
-        if Bot::is_module_enabled("ollama") {
-            bot.modules.push(ModuleData::new(Ollama::new()?).await);
-        }
-        if Bot::is_module_enabled("feeds") {
-            bot.modules.push(ModuleData::new(Feeds::new()?).await);
-        }
-        if Bot::is_module_enabled("roll") {
-            bot.modules.push(ModuleData::new(Roll::new()?).await);
-        }
-        if Bot::is_module_enabled("webpages") {
-            bot.modules.push(ModuleData::new(Webpages::new()?).await);
-        }
-        if Bot::is_module_enabled("outscale_api_versions") {
-            bot.modules
-                .push(ModuleData::new(OutscaleApiVersions::new()?).await);
-        }
-        Ok(bot)
+    pub async fn new() -> Bot {
+        let mut bot = Bot::default();
+        bot.register("ping", Ping::new()).await;
+        bot.register("help", Help::new()).await;
+        bot.register("down_detectors", DownDetectors::new()).await;
+        bot.register("github_orgs", GithubOrgs::new()).await;
+        bot.register("github_repos", GithubRepos::new()).await;
+        bot.register("triggers", Triggers::new()).await;
+        bot.register("hello", Hello::new()).await;
+        bot.register("ollama", Ollama::new()).await;
+        bot.register("feeds", Feeds::new()).await;
+        bot.register("roll", Roll::new()).await;
+        bot.register("webpages", Webpages::new()).await;
+        bot.register("outscale_api_versions", OutscaleApiVersions::new())
+            .await;
+        bot
     }
 
-    pub async fn ready(&mut self) -> bool {
-        let mut ret = true;
-        for module in self.modules.iter() {
-            if module.params.is_empty() {
-                continue;
-            }
-            for param in module.params.iter() {
-                if !param.mandatory {
-                    continue;
-                }
-                match env::var(&param.name) {
-                    Ok(value) => {
-                        if value.is_empty() {
-                            error!(
-                                "module {} need mandatory environment variable {}",
-                                module.name, param.name
-                            );
-                            ret = false;
-                        }
-                    }
-                    Err(_) => {
-                        error!(
-                            "module {} need mandatory environment variable {}",
-                            module.name, param.name
-                        );
-                        ret = false;
-                    }
-                }
-            }
+    async fn register<M: Module + Send + Sync + 'static>(
+        &mut self,
+        module_name: &str,
+        module: Result<M, VarError>,
+    ) {
+        if !Bot::is_module_enabled(module_name) {
+            info!("module {} is not enabled", module_name);
+            return;
         }
-        ret
+        info!("module {} is enabled", module_name);
+        let module = match module {
+            Ok(module) => module,
+            Err(err) => {
+                error!("cannot init module {}: {}", module_name, err);
+                return;
+            }
+        };
+        self.modules.push(ModuleData::new(module).await);
     }
 
     async fn send_modules(&self) {

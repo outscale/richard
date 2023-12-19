@@ -2,7 +2,7 @@
 
 use bot::Bot;
 use clap::{command, Arg, ArgAction};
-use log::{error, info};
+use log::info;
 use std::process::exit;
 
 mod bot;
@@ -24,13 +24,7 @@ mod webpages;
 #[tokio::main]
 pub async fn main() {
     env_logger::init();
-    let mut bot = match Bot::new().await {
-        Ok(bot) => bot,
-        Err(err) => {
-            error!("missing env var: {}", err);
-            exit(1);
-        }
-    };
+    let mut bot = Bot::new().await;
 
     let matches = command!()
         .arg(
@@ -44,11 +38,6 @@ pub async fn main() {
     if matches.get_flag("show-params") {
         eprintln!("{}", bot.help().await);
         exit(0);
-    }
-
-    if !bot.ready().await {
-        error!("some bot modules does not have requiered parameters");
-        exit(1);
     }
     info!("bot will now run");
     bot.run().await;
