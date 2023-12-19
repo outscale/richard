@@ -160,7 +160,7 @@ impl DownDetector {
             },
         };
 
-        let response = match agent.post(&self.url).send().await {
+        let response = match agent.get(&self.url).send().await {
             Ok(response) => response,
             Err(err) => {
                 trace!("{}: post: {}", self.name, err);
