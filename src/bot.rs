@@ -220,18 +220,9 @@ impl Bot {
                 tasks.spawn(tokio::spawn(async move {
                     let module = module.clone();
                     loop {
-                        trace!("get module {} lock ...", module.name);
                         let mut module_rw = module.module.write().await;
-                        trace!("module {} lock aquired", module.name);
-                        trace!("module {} run variation {}", module.name, variation);
                         module_rw.run(variation).await;
                         drop(module_rw);
-                        trace!(
-                            "module {} run variation {} is now sleeping for {:#?}",
-                            module.name,
-                            variation,
-                            duration
-                        );
                         sleep(duration).await;
                     }
                 }));
