@@ -41,19 +41,17 @@ impl Module for Help {
 
     async fn trigger(&mut self, _message: &str, id: &str) {
         trace!("responding to /help");
-        let mut command_list = self
+        let command_list = self
             .commands
             .iter()
-            .map(|command| format!("{}, ", command))
+            .map(|command| format!("- {}\n", command))
             .fold(String::new(), |mut acc, command| {
                 acc.push_str(command.as_str());
                 acc
             });
-        command_list.pop();
-        command_list.pop();
         self.webex
             .respond(
-                format!("available commands are: {}", command_list).as_str(),
+                format!("Available commands are:\n{}", command_list).as_str(),
                 id,
             )
             .await;
