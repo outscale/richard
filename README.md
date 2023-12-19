@@ -19,6 +19,7 @@ Available modules:
 - feeds: watch for one or more RSS feeds, alert on new items
 - roll: responds to /roll commands. e.g. /roll 1d20
 - webpages: watch for one or more webpages. Alert when page content change.
+- outscale_api_versions: watch for new API version of one or more Outscale API endpoints
 
 # Build
 

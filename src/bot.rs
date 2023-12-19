@@ -5,6 +5,7 @@ use crate::github_repos::GithubRepos;
 use crate::hello::Hello;
 use crate::help::Help;
 use crate::ollama::Ollama;
+use crate::outscale_api_versions::OutscaleApiVersions;
 use crate::ping::Ping;
 use crate::roll::Roll;
 use crate::triggers::Triggers;
@@ -124,6 +125,10 @@ impl Bot {
         if Bot::is_module_enabled("webpages") {
             bot.modules
                 .push(ModuleData::new(Webpages::new().unwrap()).await);
+        }
+        if Bot::is_module_enabled("outscale_api_versions") {
+            bot.modules
+                .push(ModuleData::new(OutscaleApiVersions::new().unwrap()).await);
         }
         bot
     }

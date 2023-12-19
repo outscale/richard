@@ -13,6 +13,7 @@ mod github_repos;
 mod hello;
 mod help;
 mod ollama;
+mod outscale_api_versions;
 mod ping;
 mod roll;
 mod triggers;

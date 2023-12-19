@@ -3,7 +3,6 @@ use crate::webex::{self, WebexAgent};
 use log::info;
 use log::{error, trace, warn};
 use reqwest::StatusCode;
-use serde::Deserialize;
 use std::cmp::min;
 use std::env::{self, VarError};
 use std::error::Error;
@@ -55,17 +54,12 @@ impl Module for Endpoints {
         match variation {
             0 => self.run_error_rate().await,
             1 => self.run_alive().await,
-            2 => self.run_version().await,
             var => error!("variation {var} is not managed"),
         };
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
-        vec![
-            Duration::from_secs(2),
-            Duration::from_secs(2),
-            Duration::from_secs(600),
-        ]
+        vec![Duration::from_secs(2), Duration::from_secs(2)]
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
@@ -76,13 +70,9 @@ impl Module for Endpoints {
         trace!("responding to /status");
         let mut response = String::new();
         for e in &self.endpoints {
-            let version = match &e.version {
-                Some(v) => v.clone(),
-                None => "unkown".to_string(),
-            };
             let s = format!(
-                "{}: alive={}, version={}, error_rate={}\n",
-                e.name, e.alive, version, e.error_rate
+                "{}: alive={}, error_rate={}\n",
+                e.name, e.alive, e.error_rate
             );
             response.push_str(s.as_str());
         }
@@ -109,18 +99,6 @@ impl Endpoints {
             }
         }
         Ok(endpoints)
-    }
-
-    // TODO: move this as a separate module with 600s of cooldown
-    pub async fn run_version(&mut self) {
-        let mut messages = Vec::<String>::new();
-        for endpoint in self.endpoints.iter_mut() {
-            info!("updating {}", endpoint.name);
-            if let Some(v) = endpoint.update_version().await {
-                messages.push(format!("New API version on {}: {}", endpoint.name, v));
-            }
-        }
-        self.webex.say_messages(messages).await;
     }
 
     async fn run_error_rate(&mut self) {
@@ -152,7 +130,6 @@ impl Endpoints {
 struct Endpoint {
     name: String,
     endpoint: String,
-    version: Option<String>,
     alive: bool,
     access_failure_cnt: u8,
     last_error: Option<EndpointError>,
@@ -166,7 +143,6 @@ impl Endpoint {
         Endpoint {
             name,
             endpoint,
-            version: None,
             alive: true,
             access_failure_cnt: 0,
             last_error: None,
@@ -176,30 +152,7 @@ impl Endpoint {
         }
     }
 
-    // return new version if updated
-    // return None on first update
-    async fn update_version(&mut self) -> Option<String> {
-        let version = Some(self.get_version().await.ok()?);
-        let mut ret = None;
-        if self.version.is_some() && version != self.version {
-            ret = version.clone();
-        }
-        self.version = version;
-        ret
-    }
-
-    async fn get_version(&self) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let body = request_agent()?
-            .post(&self.endpoint)
-            .send()
-            .await?
-            .text()
-            .await?;
-        let response: VersionResponse = serde_json::from_str(body.as_str())?;
-        Ok(response.version)
-    }
-
-    async fn is_alive(&self) -> Result<(), EndpointError> {
+    async fn test_url(&self) -> Result<(), EndpointError> {
         let agent = match request_agent() {
             Ok(agent) => agent,
             Err(err) => return Err(EndpointError::AgentInit(err.to_string())),
@@ -223,7 +176,7 @@ impl Endpoint {
         const HIGH: u8 = 6;
         const MAX_HIGH: u8 = 10;
         let alive_old = self.alive;
-        match self.is_alive().await {
+        match self.test_url().await {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
             Err(e) => {
                 self.last_error = Some(e);
@@ -242,7 +195,7 @@ impl Endpoint {
     async fn update_error_rate(&mut self) -> Option<f32> {
         // A simple sliding mean, only providing value once sliding window is full.
         const SIZE: f32 = 100.0;
-        self.error_rate_acc = match self.get_version().await {
+        self.error_rate_acc = match self.test_url().await {
             Ok(_) => self.error_rate_acc + 0.0 - self.error_rate,
             Err(_) => self.error_rate_acc + 1.0 - self.error_rate,
         };
@@ -307,10 +260,4 @@ impl ToString for EndpointError {
             EndpointError::Transport(transport) => format!("API seems down (transport error: {})", transport),
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize, Default)]
-#[serde(rename_all = "PascalCase")]
-struct VersionResponse {
-    version: String,
 }
