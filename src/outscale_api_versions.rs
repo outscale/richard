@@ -56,11 +56,7 @@ impl Module for OutscaleApiVersions {
         }
     }
 
-    async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("/oapi-versions") {
-            trace!("ignoring message");
-            return;
-        }
+    async fn trigger(&mut self, _message: &str, id: &str) {
         trace!("responding to /status");
         let mut response = String::new();
         for e in &self.endpoints {

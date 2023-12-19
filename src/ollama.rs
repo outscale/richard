@@ -49,12 +49,7 @@ impl Module for Ollama {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        let keywords = vec!["/status", "/help", "/ping", "/roll", "/oapi-versions"];
-        for keyword in keywords {
-            if message.contains(keyword) {
-                return;
-            }
-        }
+        trace!("respond on any other message");
         match self.query(message).await {
             Ok(message) => self.webex.respond(&message, id).await,
             Err(err) => {

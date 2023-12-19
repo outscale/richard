@@ -37,9 +37,6 @@ impl Module for Roll {
     }
 
     async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("/roll") {
-            return;
-        }
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
         self.webex.respond(&response, id).await;
     }

@@ -30,12 +30,8 @@ impl Module for Ping {
         }
     }
 
-    async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("/ping") {
-            trace!("ignoring message {}", message);
-            return;
-        }
-        trace!("responding to ping");
+    async fn trigger(&mut self, _message: &str, id: &str) {
+        trace!("responding to /ping");
         self.webex.respond("pong", id).await;
     }
 }

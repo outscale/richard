@@ -3,6 +3,7 @@ use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use log::trace;
+use std::collections::HashSet;
 use std::env::VarError;
 use tokio::time::Duration;
 
@@ -16,7 +17,15 @@ impl Module for Help {
         webex::params()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&mut self, modules: &[ModuleData]) {
+        for module in modules {
+            if let Some(triggers) = module.capabilities.triggers.as_ref() {
+                for trigger in triggers {
+                    self.commands.insert(trigger.clone());
+                }
+            }
+        }
+    }
 
     async fn run(&mut self, _variation: usize) {}
 
@@ -30,15 +39,21 @@ impl Module for Help {
         }
     }
 
-    async fn trigger(&mut self, message: &str, id: &str) {
-        if !message.contains("/help") {
-            trace!("ignoring message {}", message);
-            return;
-        }
-        trace!("responding to help");
+    async fn trigger(&mut self, _message: &str, id: &str) {
+        trace!("responding to /help");
+        let mut command_list = self
+            .commands
+            .iter()
+            .map(|command| format!("{}, ", command))
+            .fold(String::new(), |mut acc, command| {
+                acc.push_str(command.as_str());
+                acc
+            });
+        command_list.pop();
+        command_list.pop();
         self.webex
             .respond(
-                "available commands are: ping, status, roll, help, oapi-versions",
+                format!("available commands are: {}", command_list).as_str(),
                 id,
             )
             .await;
@@ -48,12 +63,14 @@ impl Module for Help {
 #[derive(Clone)]
 pub struct Help {
     webex: WebexAgent,
+    commands: HashSet<String>,
 }
 
 impl Help {
     pub fn new() -> Result<Self, VarError> {
         Ok(Help {
             webex: WebexAgent::new()?,
+            commands: HashSet::new(),
         })
     }
 }

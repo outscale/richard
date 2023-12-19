@@ -34,6 +34,7 @@ impl Module for Triggers {
         self.all_modules = modules
             .iter()
             .filter(|module| module.name != "triggers")
+            .filter(|module| module.capabilities.triggers.is_some())
             .cloned()
             .collect();
     }
@@ -52,8 +53,19 @@ impl Module for Triggers {
         };
         for message in new_messages.items {
             for module in self.all_modules.iter() {
+                let Some(triggers) = module.capabilities.triggers.as_ref() else {
+                    continue;
+                };
                 let mut module_rw = module.module.write().await;
-                module_rw.trigger(&message.text, &message.id).await;
+                if triggers.is_empty() {
+                    module_rw.trigger(&message.text, &message.id).await;
+                    continue;
+                }
+                for trigger in triggers.iter() {
+                    if message.text.contains(trigger) {
+                        module_rw.trigger(&message.text, &message.id).await;
+                    }
+                }
             }
         }
     }
