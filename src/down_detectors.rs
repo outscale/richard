@@ -61,6 +61,8 @@ impl Module for DownDetectors {
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
             triggers: Some(vec!["/status".to_string()]),
+            catch_non_triggered: false,
+            catch_all: false,
         }
     }
 
@@ -226,9 +228,17 @@ impl DownDetector {
                         error!("{}", err.to_string());
                         None
                     }
-                    err => Some(format!("[{}]({}): {}", self.name, self.url, err.to_string())),
+                    err => Some(format!(
+                        "[{}]({}): {}",
+                        self.name,
+                        self.url,
+                        err.to_string()
+                    )),
                 },
-                None => Some(format!("[{}]({}) seems down (no reason found)", self.name, self.url)),
+                None => Some(format!(
+                    "[{}]({}) seems down (no reason found)",
+                    self.name, self.url
+                )),
             },
             (false, true) => Some(format!("[{}]({}) is up", self.name, self.url)),
             _ => None,

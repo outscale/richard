@@ -48,7 +48,11 @@ impl Module for GithubOrgs {
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
-        ModuleCapabilities { triggers: None }
+        ModuleCapabilities {
+            triggers: None,
+            catch_non_triggered: false,
+            catch_all: false,
+        }
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

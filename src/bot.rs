@@ -54,6 +54,8 @@ pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
 #[derive(Clone)]
 pub struct ModuleCapabilities {
     pub triggers: Option<Vec<String>>,
+    pub catch_non_triggered: bool,
+    pub catch_all: bool,
 }
 
 #[derive(Clone)]

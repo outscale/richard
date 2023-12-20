@@ -52,7 +52,11 @@ impl Module for GithubRepos {
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
-        ModuleCapabilities { triggers: None }
+        ModuleCapabilities {
+            triggers: None,
+            catch_non_triggered: false,
+            catch_all: false,
+        }
     }
 
     async fn trigger(&mut self, _message: &str, _id: &str) {}

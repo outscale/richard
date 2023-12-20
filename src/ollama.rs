@@ -36,7 +36,9 @@ impl Module for Ollama {
 
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
-            triggers: Some(vec![]),
+            triggers: None,
+            catch_non_triggered: true,
+            catch_all: false,
         }
     }
 

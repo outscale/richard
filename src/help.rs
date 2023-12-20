@@ -36,6 +36,8 @@ impl Module for Help {
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
             triggers: Some(vec!["/help".to_string()]),
+            catch_non_triggered: false,
+            catch_all: false,
         }
     }
 

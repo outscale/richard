@@ -33,6 +33,8 @@ impl Module for Roll {
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
             triggers: Some(vec!["/roll".to_string()]),
+            catch_non_triggered: false,
+            catch_all: false,
         }
     }
 
