@@ -1,7 +1,5 @@
 use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
-use crate::webex;
-use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use feed_rs::model;
 use feed_rs::parser::parse;
@@ -11,10 +9,9 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Feeds {
     feeds: Vec<Feed>,
-    webex: WebexAgent,
 }
 
 #[async_trait]
@@ -24,14 +21,10 @@ impl Module for Feeds {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        [
-            webex::params(),
-            vec![
-                ModuleParam::new("FEED_0_NAME", "Feed name, can be multiple (0..)", false),
-                ModuleParam::new("FEED_0_URL", "Feed URL, can be multiple (0..)", false),
-            ],
+        vec![
+            ModuleParam::new("FEED_0_NAME", "Feed name, can be multiple (0..)", false),
+            ModuleParam::new("FEED_0_URL", "Feed URL, can be multiple (0..)", false),
         ]
-        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -51,10 +44,7 @@ impl Module for Feeds {
         } else {
             info!("we have {} new feed entries", messages.len());
         }
-        for msg in messages {
-            self.webex.say_markdown(msg).await;
-        }
-        None
+        Some(messages)
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
@@ -74,10 +64,7 @@ impl Module for Feeds {
 
 impl Feeds {
     pub fn new() -> Result<Feeds, VarError> {
-        let mut feeds = Feeds {
-            feeds: Vec::new(),
-            webex: WebexAgent::new()?,
-        };
+        let mut feeds = Feeds::default();
         for i in 0..100 {
             let name = env::var(&format!("FEED_{}_NAME", i));
             let url = env::var(&format!("FEED_{}_URL", i));
