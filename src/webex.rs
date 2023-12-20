@@ -1,5 +1,5 @@
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
 };
 use crate::utils::request_agent;
 use async_trait::async_trait;
@@ -50,11 +50,11 @@ impl Module for Webex {
         }
     }
 
-    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
         let mut unread_messages = Vec::new();
         let messages = self.agent.unread_messages().await.ok()?;
         for message in messages.items {
-            unread_messages.push(UnreadMessage {
+            unread_messages.push(MessageCtx {
                 content: message.text,
                 id: message.id,
             })
@@ -63,6 +63,10 @@ impl Module for Webex {
             return None;
         }
         Some(unread_messages)
+    }
+
+    async fn resp_message(&mut self, parent: MessageCtx, message: Message) {
+        self.agent.respond(&message, &parent.id).await;
     }
 }
 

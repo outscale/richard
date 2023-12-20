@@ -1,5 +1,5 @@
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
 };
 use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;
@@ -65,9 +65,11 @@ impl Module for GithubOrgs {
 
     async fn send_message(&mut self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
         None
     }
+
+    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
 }
 #[derive(Clone)]
 pub struct GithubOrgs {

@@ -1,5 +1,5 @@
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
 };
 use async_trait::async_trait;
 use log::trace;
@@ -40,9 +40,11 @@ impl Module for Ping {
 
     async fn send_message(&mut self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
         None
     }
+
+    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
 }
 
 #[derive(Clone)]

@@ -8,7 +8,7 @@ use std::error::Error;
 use tokio::time::Duration;
 
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
 };
 use async_trait::async_trait;
 
@@ -82,9 +82,11 @@ impl Module for DownDetectors {
 
     async fn send_message(&mut self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
         None
     }
+
+    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl DownDetectors {

@@ -1,4 +1,4 @@
-use crate::bot::{Message, UnreadMessage};
+use crate::bot::{Message, MessageCtx};
 use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::error;
@@ -59,9 +59,11 @@ impl Module for Ollama {
 
     async fn send_message(&mut self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
         None
     }
+
+    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl Ollama {
