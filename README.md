@@ -8,6 +8,7 @@ It get into a room and speak whenever he wants.
 Bot is modular and every module must be explicitely enabled.
 
 Available modules:
+- webex: interface with Webex chat service
 - ping: responds to /ping commands with "pong"
 - help: responds to /help command
 - triggers: allow commands to be sent to all other modules

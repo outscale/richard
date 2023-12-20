@@ -1,5 +1,6 @@
-use crate::bot::ModuleParam;
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
+use async_trait::async_trait;
 use log::{error, trace};
 use reqwest::RequestBuilder;
 use serde::Deserialize;
@@ -7,6 +8,50 @@ use serde::Serialize;
 use std::env;
 use std::env::VarError;
 use std::error::Error;
+use tokio::time::Duration;
+
+#[async_trait]
+impl Module for Webex {
+    fn name(&self) -> &'static str {
+        "hello"
+    }
+
+    fn params(&self) -> Vec<ModuleParam> {
+        params()
+    }
+
+    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+
+    async fn run(&mut self, _variation: usize) {}
+
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities {
+            send_message: true,
+            ..ModuleCapabilities::default()
+        }
+    }
+
+    async fn variation_durations(&mut self) -> Vec<Duration> {
+        vec![Duration::from_secs(10)]
+    }
+
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+        None
+    }
+}
+
+#[derive(Clone)]
+pub struct Webex {
+    _agent: WebexAgent,
+}
+
+impl Webex {
+    pub fn new() -> Result<Self, VarError> {
+        Ok(Webex {
+            _agent: WebexAgent::new()?,
+        })
+    }
+}
 
 pub fn params() -> Vec<ModuleParam> {
     vec![

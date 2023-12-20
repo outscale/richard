@@ -9,6 +9,7 @@ use crate::outscale_api_versions::OutscaleApiVersions;
 use crate::ping::Ping;
 use crate::roll::Roll;
 use crate::triggers::Triggers;
+use crate::webex::Webex;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
 use log::{error, info, trace};
@@ -95,6 +96,7 @@ pub struct Bot {
 impl Bot {
     pub async fn new() -> Bot {
         let mut bot = Bot::default();
+        bot.register("webex", Webex::new()).await;
         bot.register("ping", Ping::new()).await;
         bot.register("help", Help::new()).await;
         bot.register("down_detectors", DownDetectors::new()).await;
