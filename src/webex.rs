@@ -39,18 +39,22 @@ impl Module for Webex {
         None
     }
 
-    async fn send_message(&mut self, _messages: Vec<String>) {}
+    async fn send_message(&mut self, messages: Vec<String>) {
+        for message in messages {
+            self.agent.say(message).await;
+        }
+    }
 }
 
 #[derive(Clone)]
 pub struct Webex {
-    _agent: WebexAgent,
+    agent: WebexAgent,
 }
 
 impl Webex {
     pub fn new() -> Result<Self, VarError> {
         Ok(Webex {
-            _agent: WebexAgent::new()?,
+            agent: WebexAgent::new()?,
         })
     }
 }
