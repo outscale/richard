@@ -44,12 +44,7 @@ impl Module for Triggers {
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
-        ModuleCapabilities {
-            triggers: None,
-            catch_non_triggered: false,
-            catch_all: false,
-            send_message: false,
-        }
+        ModuleCapabilities::default()
     }
 
     async fn run(&mut self, _variation: usize) {

@@ -53,7 +53,7 @@ pub trait Module {
 
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ModuleCapabilities {
     pub triggers: Option<Vec<String>>,
     pub catch_non_triggered: bool,

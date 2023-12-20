@@ -25,9 +25,7 @@ impl Module for Ping {
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
             triggers: Some(vec!["/ping".to_string()]),
-            catch_non_triggered: false,
-            catch_all: false,
-            send_message: false,
+            ..ModuleCapabilities::default()
         }
     }
 

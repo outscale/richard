@@ -34,12 +34,7 @@ impl Module for Webpages {
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
-        ModuleCapabilities {
-            triggers: None,
-            catch_non_triggered: false,
-            catch_all: false,
-            send_message: false,
-        }
+        ModuleCapabilities::default()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}

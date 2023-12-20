@@ -61,9 +61,7 @@ impl Module for DownDetectors {
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
             triggers: Some(vec!["/status".to_string()]),
-            catch_non_triggered: false,
-            catch_all: false,
-            send_message: false,
+            ..ModuleCapabilities::default()
         }
     }
 
