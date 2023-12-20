@@ -31,6 +31,7 @@ impl Module for Webex {
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {
             send_message: true,
+            read_message: true,
             ..ModuleCapabilities::default()
         }
     }
@@ -50,7 +51,18 @@ impl Module for Webex {
     }
 
     async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
-        None
+        let mut unread_messages = Vec::new();
+        let messages = self.agent.unread_messages().await.ok()?;
+        for message in messages.items {
+            unread_messages.push(UnreadMessage {
+                content: message.text,
+                id: message.id,
+            })
+        }
+        if unread_messages.is_empty() {
+            return None;
+        }
+        Some(unread_messages)
     }
 }
 

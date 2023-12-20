@@ -69,7 +69,7 @@ pub struct ModuleCapabilities {
     pub catch_non_triggered: bool,
     pub catch_all: bool,
     pub send_message: bool,
-    pub receive_message: bool,
+    pub read_message: bool,
 }
 
 #[derive(Clone)]
