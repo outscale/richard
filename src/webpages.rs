@@ -1,7 +1,5 @@
 use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
-use crate::webex;
-use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use log::{error, info, warn};
 use std::env;
@@ -15,22 +13,18 @@ impl Module for Webpages {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        [
-            webex::params(),
-            vec![
-                ModuleParam::new(
-                    "WEBPAGES_0_NAME",
-                    "Webpage name, can be multiple (0..)",
-                    false,
-                ),
-                ModuleParam::new(
-                    "WEBPAGES_0_URL",
-                    "Webpage URL, can be multiple (0..)",
-                    false,
-                ),
-            ],
+        vec![
+            ModuleParam::new(
+                "WEBPAGES_0_NAME",
+                "Webpage name, can be multiple (0..)",
+                false,
+            ),
+            ModuleParam::new(
+                "WEBPAGES_0_URL",
+                "Webpage URL, can be multiple (0..)",
+                false,
+            ),
         ]
-        .concat()
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
@@ -40,13 +34,17 @@ impl Module for Webpages {
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+        let mut messages = Vec::new();
         for page in self.pages.iter_mut() {
             if page.changed().await {
                 let message = format!("[{}]({}) has changed", page.name, page.url);
-                self.webex.say_markdown(message).await;
+                messages.push(message);
             }
         }
-        None
+        if messages.is_empty() {
+            return None;
+        }
+        Some(messages)
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
@@ -60,18 +58,14 @@ impl Module for Webpages {
     async fn send_message(&mut self, _messages: &[Message]) {}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Webpages {
     pages: Vec<Webpage>,
-    webex: WebexAgent,
 }
 
 impl Webpages {
     pub fn new() -> Result<Self, VarError> {
-        let mut webpages = Webpages {
-            pages: Vec::new(),
-            webex: WebexAgent::new()?,
-        };
+        let mut webpages = Webpages::default();
         for i in 0..100 {
             let name = env::var(&format!("WEBPAGES_{}_NAME", i));
             let url = env::var(&format!("WEBPAGES_{}_URL", i));

@@ -119,10 +119,6 @@ impl WebexAgent {
         self.say_generic(message, false).await;
     }
 
-    pub async fn say_markdown<S: Into<String>>(&self, message: S) {
-        self.say_generic(message, true).await;
-    }
-
     pub async fn say_generic<S: Into<String>>(&self, message: S, markdown: bool) {
         let mut request = WebexQuery {
             room_id: self.room_id.clone(),
