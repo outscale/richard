@@ -8,7 +8,7 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -46,12 +46,13 @@ impl Module for DownDetectors {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, variation: usize) {
+    async fn run(&mut self, variation: usize) -> Option<Vec<Message>> {
         match variation {
             0 => self.run_error_rate().await,
             1 => self.run_alive().await,
             var => error!("variation {var} is not managed"),
         };
+        None
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -36,7 +36,7 @@ impl Module for Feeds {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
         let mut messages: Vec<String> = Vec::new();
         for feed in &mut self.feeds {
             if feed.update().await {
@@ -47,13 +47,14 @@ impl Module for Feeds {
         }
         if messages.is_empty() {
             info!("no new feed entry");
-            return;
+            return None;
         } else {
             info!("we have {} new feed entries", messages.len());
         }
         for msg in messages {
             self.webex.say_markdown(msg).await;
         }
+        None
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

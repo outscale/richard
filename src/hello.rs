@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -18,10 +18,10 @@ impl Module for Hello {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
         if !self.has_skipped_first_time {
             self.has_skipped_first_time = true;
-            return;
+            return None;
         }
         const RMS_QUOTES: &[&str] = &include!("hello_quotes_rms.rs");
         const OTHER_QUOTES: &[(&str, &str)] = &include!("hello_quotes.rs");
@@ -33,10 +33,11 @@ impl Module for Hello {
             let mut rng = rand::thread_rng();
             match all_quotes.choose(&mut rng) {
                 Some((author, quote)) => format!("{} — {}", quote, author),
-                None => return,
+                None => return None,
             }
         };
         self.webex.say(quote).await;
+        None
     }
 
     fn capabilities(&self) -> ModuleCapabilities {

@@ -6,7 +6,7 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
 #[derive(Clone)]
@@ -42,8 +42,9 @@ impl Module for OutscaleApiVersions {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
         self.run_version().await;
+        None
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

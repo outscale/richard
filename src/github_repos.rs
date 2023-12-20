@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -41,10 +41,11 @@ impl Module for GithubRepos {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
         for (_repo_full_name, repo) in self.repos.iter_mut() {
             repo.run().await;
         }
+        None
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

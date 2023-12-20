@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;
 use crate::webex;
@@ -36,15 +36,16 @@ impl Module for GithubOrgs {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, variation: usize) {
+    async fn run(&mut self, variation: usize) -> Option<Vec<Message>> {
         match variation {
             0 => self.run_all_repos().await,
             1 => self.update_repo_listing().await,
             _ => {
                 error!("bad variation run()");
-                return;
+                return None;
             }
         }
+        None
     }
 
     fn capabilities(&self) -> ModuleCapabilities {

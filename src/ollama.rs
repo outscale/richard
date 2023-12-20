@@ -1,3 +1,4 @@
+use crate::bot::Message;
 use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::error;
@@ -36,7 +37,9 @@ impl Module for Ollama {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {}
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+        None
+    }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
         vec![Duration::from_secs(100)]

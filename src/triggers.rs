@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -47,12 +47,12 @@ impl Module for Triggers {
         ModuleCapabilities::default()
     }
 
-    async fn run(&mut self, _variation: usize) {
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
         let new_messages = match self.webex.unread_messages().await {
             Ok(messages) => messages,
             Err(err) => {
                 error!("reading messages: {:#?}", err);
-                return;
+                return None;
             }
         };
 
@@ -102,6 +102,7 @@ impl Module for Triggers {
                 self.webex.respond(&response, &message.id).await;
             }
         }
+        None
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {

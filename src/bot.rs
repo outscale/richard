@@ -40,6 +40,7 @@ impl ModuleParam {
 }
 
 pub type MessageResponse = String;
+pub type Message = String;
 
 #[async_trait]
 pub trait Module {
@@ -47,7 +48,7 @@ pub trait Module {
     fn params(&self) -> Vec<ModuleParam>;
     async fn module_offering(&mut self, modules: &[ModuleData]);
     fn capabilities(&self) -> ModuleCapabilities;
-    async fn run(&mut self, variation: usize); // alternative to `variation`?
+    async fn run(&mut self, variation: usize) -> Option<Vec<Message>>;
     async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>>;
     async fn send_message(&mut self, messages: Vec<String>);

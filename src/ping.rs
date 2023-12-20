@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::trace;
 use std::env::VarError;
@@ -16,7 +16,9 @@ impl Module for Ping {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {}
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+        None
+    }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
         vec![Duration::from_secs(100)]

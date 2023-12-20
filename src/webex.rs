@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use async_trait::async_trait;
 use log::{error, trace};
@@ -22,7 +22,9 @@ impl Module for Webex {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {}
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+        None
+    }
 
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities {

@@ -1,4 +1,4 @@
-use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -39,13 +39,14 @@ impl Module for Webpages {
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) {
+    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
         for page in self.pages.iter_mut() {
             if page.changed().await {
                 let message = format!("[{}]({}) has changed", page.name, page.url);
                 self.webex.say_markdown(message).await;
             }
         }
+        None
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
