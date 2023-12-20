@@ -43,6 +43,7 @@ impl ModuleParam {
 pub type MessageResponse = String;
 pub type Message = String;
 
+#[derive(Clone)]
 pub struct MessageCtx {
     pub content: Message,
     pub id: String,

@@ -1,5 +1,5 @@
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
+    Message, MessageCtx, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam,
 };
 use async_trait::async_trait;
 use rand::prelude::IteratorRandom;

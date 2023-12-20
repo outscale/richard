@@ -1,5 +1,5 @@
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
+    Message, MessageCtx, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam,
 };
 use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;

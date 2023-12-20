@@ -1,5 +1,5 @@
 use crate::bot::{
-    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, MessageCtx,
+    Message, MessageCtx, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam,
 };
 use crate::utils::request_agent;
 use async_trait::async_trait;
