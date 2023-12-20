@@ -1,6 +1,4 @@
 use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
-use crate::webex;
-use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use rand::prelude::IteratorRandom;
 use std::env::VarError;
@@ -13,7 +11,7 @@ impl Module for Hello {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        webex::params()
+        Vec::new()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -36,8 +34,7 @@ impl Module for Hello {
                 None => return None,
             }
         };
-        self.webex.say(quote).await;
-        None
+        Some(vec![quote])
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
@@ -58,14 +55,12 @@ impl Module for Hello {
 
 #[derive(Clone)]
 pub struct Hello {
-    webex: WebexAgent,
     has_skipped_first_time: bool,
 }
 
 impl Hello {
     pub fn new() -> Result<Self, VarError> {
         Ok(Hello {
-            webex: WebexAgent::new()?,
             has_skipped_first_time: false,
         })
     }
