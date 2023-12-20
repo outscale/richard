@@ -19,7 +19,10 @@ impl Module for Webex {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        params()
+        vec![
+            ModuleParam::new("WEBEX_TOKEN", "token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).", true),
+            ModuleParam::new("WEBEX_ROOM_ID", "webex room id where to speak", true),
+        ]
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -83,13 +86,6 @@ impl Webex {
     }
 }
 
-pub fn params() -> Vec<ModuleParam> {
-    vec![
-        ModuleParam::new("WEBEX_TOKEN", "token provided by webex. See how to create a [controller bot](https://developer.webex.com/docs/bots).", true),
-        ModuleParam::new("WEBEX_ROOM_ID", "webex room id where to speak", true),
-    ]
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct WebexAgent {
     auth_header: String,
@@ -107,7 +103,7 @@ struct WebexQuery {
 }
 
 impl WebexAgent {
-    pub fn new() -> Result<WebexAgent, VarError> {
+    fn new() -> Result<WebexAgent, VarError> {
         let webex_token = env::var("WEBEX_TOKEN")?;
         let room_id = env::var("WEBEX_ROOM_ID")?;
         Ok(WebexAgent {
@@ -117,7 +113,7 @@ impl WebexAgent {
         })
     }
 
-    pub fn post<T: Into<String>, J: Serialize + ?Sized>(
+    fn post<T: Into<String>, J: Serialize + ?Sized>(
         &self,
         url: T,
         json: &J,
@@ -128,20 +124,17 @@ impl WebexAgent {
             .header("Authorization", &self.auth_header))
     }
 
-    pub fn get<T: Into<String>>(
-        &self,
-        url: T,
-    ) -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
+    fn get<T: Into<String>>(&self, url: T) -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
         Ok(request_agent()?
             .get(url.into())
             .header("Authorization", &self.auth_header))
     }
 
-    pub async fn say<S: Into<String>>(&self, message: S) {
+    async fn say<S: Into<String>>(&self, message: S) {
         self.say_generic(message, true).await;
     }
 
-    pub async fn say_generic<S: Into<String>>(&self, message: S, markdown: bool) {
+    async fn say_generic<S: Into<String>>(&self, message: S, markdown: bool) {
         let mut request = WebexQuery {
             room_id: self.room_id.clone(),
             ..Default::default()
@@ -165,7 +158,7 @@ impl WebexAgent {
         };
     }
 
-    pub async fn respond(&self, message: &str, parent: &str) {
+    async fn respond(&self, message: &str, parent: &str) {
         trace!("richard responding to parent id {parent}: {message}");
         let request = WebexQuery {
             room_id: self.room_id.clone(),
@@ -186,7 +179,7 @@ impl WebexAgent {
         }
     }
 
-    pub async fn unread_messages(&mut self) -> Result<WebexMessages, Box<dyn Error + Send + Sync>> {
+    async fn unread_messages(&mut self) -> Result<WebexMessages, Box<dyn Error + Send + Sync>> {
         let url = format!(
             "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
             self.room_id
@@ -219,13 +212,13 @@ impl WebexAgent {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct WebexMessages {
-    pub items: Vec<WebexMessage>,
+struct WebexMessages {
+    items: Vec<WebexMessage>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct WebexMessage {
-    pub id: String,
-    pub text: String,
-    pub created: String,
+struct WebexMessage {
+    id: String,
+    text: String,
+    created: String,
 }
