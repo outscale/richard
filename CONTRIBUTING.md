@@ -1,7 +1,3 @@
-# Build instructions
-
-`cargo build`
-
 # Install instructions
 
 `cargo install`

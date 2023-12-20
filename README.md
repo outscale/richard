@@ -1,11 +1,12 @@
-# Bot
+# Richard
+[![Project Sandbox](https://docs.outscale.com/fr/userguide/_images/Project-Sandbox-yellow.svg)](https://docs.outscale.com/en/userguide/Open-Source-Projects.html)
 
-Richard is a friendly bot who loves FOSS.
+Richard is a friendly chatbot who loves FOSS.
 It get into a room and speak whenever he wants.
 
 # Features
 
-Bot is modular and every module must be explicitely enabled.
+Richard is modular and every module must be explicitely enabled.
 
 Available modules:
 - webex: interface with Webex chat service
@@ -44,7 +45,6 @@ As a facility, you can:
 
 # Run
 
-1. build or get pre-compiled binary
-2. set configuration
-3. `./richard`
-
+```
+source myconf.env && cargo run
+```
