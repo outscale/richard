@@ -43,6 +43,11 @@ impl ModuleParam {
 pub type MessageResponse = String;
 pub type Message = String;
 
+pub struct UnreadMessage {
+    pub content: Message,
+    pub id: String,
+}
+
 #[async_trait]
 pub trait Module {
     fn name(&self) -> &'static str;
@@ -53,6 +58,7 @@ pub trait Module {
     async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>>;
     async fn send_message(&mut self, messages: &[Message]);
+    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>>;
 }
 
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
@@ -63,6 +69,7 @@ pub struct ModuleCapabilities {
     pub catch_non_triggered: bool,
     pub catch_all: bool,
     pub send_message: bool,
+    pub receive_message: bool,
 }
 
 #[derive(Clone)]

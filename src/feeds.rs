@@ -1,4 +1,6 @@
-use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+};
 use crate::utils::request_agent;
 use async_trait::async_trait;
 use feed_rs::model;
@@ -60,6 +62,10 @@ impl Module for Feeds {
     }
 
     async fn send_message(&mut self, _messages: &[Message]) {}
+
+    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+        None
+    }
 }
 
 impl Feeds {

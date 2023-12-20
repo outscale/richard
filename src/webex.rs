@@ -1,4 +1,6 @@
-use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+};
 use crate::utils::request_agent;
 use async_trait::async_trait;
 use log::{error, trace};
@@ -45,6 +47,10 @@ impl Module for Webex {
         for message in messages {
             self.agent.say(message).await;
         }
+    }
+
+    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+        None
     }
 }
 

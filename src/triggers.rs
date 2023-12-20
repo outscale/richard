@@ -1,4 +1,6 @@
-use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -114,4 +116,8 @@ impl Module for Triggers {
     }
 
     async fn send_message(&mut self, _messages: &[Message]) {}
+
+    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+        None
+    }
 }

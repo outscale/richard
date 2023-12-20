@@ -5,7 +5,9 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+};
 use async_trait::async_trait;
 
 #[derive(Clone, Default)]
@@ -66,6 +68,10 @@ impl Module for OutscaleApiVersions {
     }
 
     async fn send_message(&mut self, _messages: &[Message]) {}
+
+    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+        None
+    }
 }
 
 impl OutscaleApiVersions {

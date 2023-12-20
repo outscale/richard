@@ -1,4 +1,6 @@
-use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{
+    Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam, UnreadMessage,
+};
 use async_trait::async_trait;
 use log::trace;
 use std::env::VarError;
@@ -37,6 +39,10 @@ impl Module for Ping {
     }
 
     async fn send_message(&mut self, _messages: &[Message]) {}
+
+    async fn read_message(&mut self) -> Option<Vec<UnreadMessage>> {
+        None
+    }
 }
 
 #[derive(Clone)]
