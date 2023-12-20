@@ -1,7 +1,5 @@
 use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
-use crate::webex;
-use crate::webex::WebexAgent;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
 use log::{error, info, trace, warn};
@@ -15,18 +13,14 @@ use tokio::time::Duration;
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
 
 pub fn params() -> Vec<ModuleParam> {
-    [
-        webex::params(),
-        vec![
-            ModuleParam::new("GITHUB_TOKEN", "Github token to make api calls", true),
-            ModuleParam::new(
-                "GITHUB_REPOS_0_FULLNAME",
-                "Specific github repo to watch. e.g. kubernetes/kubernetes. Can be multiple (0..)",
-                false,
-            ),
-        ],
+    vec![
+        ModuleParam::new("GITHUB_TOKEN", "Github token to make api calls", true),
+        ModuleParam::new(
+            "GITHUB_REPOS_0_FULLNAME",
+            "Specific github repo to watch. e.g. kubernetes/kubernetes. Can be multiple (0..)",
+            false,
+        ),
     ]
-    .concat()
 }
 
 #[async_trait]
@@ -101,23 +95,20 @@ pub struct GithubRepo {
     details: Option<GithubRepoLight>,
     releases: Option<HashMap<ReleaseId, Release>>,
     github_token: String,
-    webex: WebexAgent,
 }
 
 impl GithubRepo {
     pub fn new(full_name: &str) -> Result<Self, VarError> {
         let full_name = full_name.into();
         let github_token = env::var("GITHUB_TOKEN")?;
-        let webex = WebexAgent::new()?;
         Ok(GithubRepo {
             full_name,
             github_token,
-            webex,
             ..Default::default()
         })
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self) -> Option<Vec<Message>> {
         if self.details.is_none() {
             self.get_repo_details().await;
         }
@@ -128,16 +119,16 @@ impl GithubRepo {
                     "repo {} is not maintained, not getting releases",
                     self.full_name
                 );
-                return;
+                return None;
             }
             None => {
                 trace!("cannot get maintenance details yet for {}", self.full_name);
-                return;
+                return None;
             }
         };
         let Some(current_releases) = self.get_releases().await else {
             error!("no release found for {}", self.full_name);
-            return;
+            return None;
         };
 
         if self.releases.is_none() {
@@ -154,22 +145,27 @@ impl GithubRepo {
                         map
                     });
             self.releases = Some(initial_release_map);
-            return;
+            return None;
         }
 
         let Some(mut past_releases) = self.releases.take() else {
-            return;
+            return None;
         };
+        let mut all_messages = Vec::new();
         for release in current_releases {
             if past_releases
                 .insert(release.id(), release.clone())
                 .is_none()
                 && !release.is_too_old()
             {
-                self.webex.say(release.notification_message()).await;
+                all_messages.push(release.notification_message());
             }
         }
         self.releases = Some(past_releases);
+        if all_messages.is_empty() {
+            return None;
+        }
+        Some(all_messages)
     }
 
     pub fn is_maintained(&self) -> Option<bool> {

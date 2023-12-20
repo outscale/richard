@@ -1,7 +1,6 @@
 use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;
-use crate::webex;
 use async_trait::async_trait;
 use log::{error, info, trace, warn};
 use serde::Deserialize;
@@ -20,7 +19,6 @@ impl Module for GithubOrgs {
 
     fn params(&self) -> Vec<ModuleParam> {
         [
-            webex::params(),
             github_repos::params(),
             vec![
                 ModuleParam::new("GITHUB_TOKEN", "Github token to make api calls", true),
@@ -39,13 +37,15 @@ impl Module for GithubOrgs {
     async fn run(&mut self, variation: usize) -> Option<Vec<Message>> {
         match variation {
             0 => self.run_all_repos().await,
-            1 => self.update_repo_listing().await,
+            1 => {
+                self.update_repo_listing().await;
+                None
+            }
             _ => {
                 error!("bad variation run()");
-                return None;
+                None
             }
         }
-        None
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
@@ -88,11 +88,18 @@ impl GithubOrgs {
         Ok(orgs)
     }
 
-    async fn run_all_repos(&mut self) {
+    async fn run_all_repos(&mut self) -> Option<Vec<Message>> {
+        let mut all_messages = Vec::new();
         for org in self.orgs.iter_mut() {
             trace!("run on org {}...", org.name);
-            org.run().await;
+            if let Some(mut messages) = org.run().await {
+                all_messages.append(&mut messages);
+            }
         }
+        if all_messages.is_empty() {
+            return None;
+        }
+        Some(all_messages)
     }
 
     async fn update_repo_listing(&mut self) {
@@ -121,13 +128,20 @@ impl GithubOrg {
         })
     }
 
-    async fn run(&mut self) {
+    async fn run(&mut self) -> Option<Vec<Message>> {
         if self.repos.is_empty() {
             self.update_repo_listing().await;
         }
+        let mut all_messages = Vec::new();
         for (_full_name, repo) in self.repos.iter_mut() {
-            repo.run().await;
+            if let Some(mut messages) = repo.run().await {
+                all_messages.append(&mut messages);
+            }
         }
+        if all_messages.is_empty() {
+            return None;
+        }
+        Some(all_messages)
     }
 
     async fn update_repo_listing(&mut self) {
