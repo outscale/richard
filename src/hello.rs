@@ -44,6 +44,7 @@ impl Module for Hello {
             triggers: None,
             catch_non_triggered: false,
             catch_all: false,
+            send_message: false,
         }
     }
 

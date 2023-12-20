@@ -32,6 +32,7 @@ impl Module for Ollama {
             triggers: None,
             catch_non_triggered: true,
             catch_all: false,
+            send_message: false,
         }
     }
 

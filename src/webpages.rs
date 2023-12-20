@@ -38,6 +38,7 @@ impl Module for Webpages {
             triggers: None,
             catch_non_triggered: false,
             catch_all: false,
+            send_message: false,
         }
     }
 

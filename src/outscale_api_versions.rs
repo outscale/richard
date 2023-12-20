@@ -55,6 +55,7 @@ impl Module for OutscaleApiVersions {
             triggers: Some(vec!["/oapi-versions".to_string()]),
             catch_non_triggered: false,
             catch_all: false,
+            send_message: false,
         }
     }
 

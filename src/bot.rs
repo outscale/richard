@@ -58,6 +58,7 @@ pub struct ModuleCapabilities {
     pub triggers: Option<Vec<String>>,
     pub catch_non_triggered: bool,
     pub catch_all: bool,
+    pub send_message: bool,
 }
 
 #[derive(Clone)]
