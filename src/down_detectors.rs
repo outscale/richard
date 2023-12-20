@@ -1,5 +1,4 @@
 use crate::utils::request_agent;
-use crate::webex::{self, WebexAgent};
 use log::info;
 use log::{error, trace, warn};
 use reqwest::StatusCode;
@@ -15,7 +14,6 @@ const HIGH_ERROR_RATE: f32 = 0.1;
 
 #[derive(Clone)]
 pub struct DownDetectors {
-    webex: WebexAgent,
     watch_list: Vec<DownDetector>,
 }
 
@@ -26,33 +24,34 @@ impl Module for DownDetectors {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        [
-            webex::params(),
-            vec![
-                ModuleParam::new(
-                    "DOWN_DETECTORS_0_NAME",
-                    "Friendly name of what is watched, can be multiple (0..)",
-                    false,
-                ),
-                ModuleParam::new(
-                    "DOWN_DETECTORS_0_URL",
-                    "URL of what is watched, can be multiple (0..)",
-                    false,
-                ),
-            ],
+        vec![
+            ModuleParam::new(
+                "DOWN_DETECTORS_0_NAME",
+                "Friendly name of what is watched, can be multiple (0..)",
+                false,
+            ),
+            ModuleParam::new(
+                "DOWN_DETECTORS_0_URL",
+                "URL of what is watched, can be multiple (0..)",
+                false,
+            ),
         ]
-        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn run(&mut self, variation: usize) -> Option<Vec<Message>> {
         match variation {
-            0 => self.run_error_rate().await,
+            0 => {
+                self.run_error_rate().await;
+                None
+            }
             1 => self.run_alive().await,
-            var => error!("variation {var} is not managed"),
-        };
-        None
+            var => {
+                error!("variation {var} is not managed");
+                None
+            }
+        }
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
@@ -86,7 +85,6 @@ impl DownDetectors {
     pub fn new() -> Result<DownDetectors, VarError> {
         let mut down_detectors = DownDetectors {
             watch_list: Vec::new(),
-            webex: WebexAgent::new()?,
         };
         for i in 0..100 {
             let name = env::var(&format!("DOWN_DETECTORS_{}_NAME", i));
@@ -120,14 +118,17 @@ impl DownDetectors {
         }
     }
 
-    async fn run_alive(&mut self) {
-        let mut messages = Vec::<String>::new();
+    async fn run_alive(&mut self) -> Option<Vec<Message>> {
+        let mut messages = Vec::<Message>::new();
         for down_detector in self.watch_list.iter_mut() {
             if let Some(response) = down_detector.alive().await {
                 messages.push(response);
             }
         }
-        self.webex.say_messages_markdown(messages).await;
+        if messages.is_empty() {
+            return None;
+        }
+        Some(messages)
     }
 }
 
