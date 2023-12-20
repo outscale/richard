@@ -77,6 +77,8 @@ impl Module for DownDetectors {
         }
         Some(vec![response])
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 impl DownDetectors {

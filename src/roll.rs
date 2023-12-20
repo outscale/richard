@@ -37,6 +37,8 @@ impl Module for Roll {
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
         Some(vec![response])
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 impl Roll {

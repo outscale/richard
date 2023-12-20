@@ -67,6 +67,8 @@ impl Module for Feeds {
     async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 impl Feeds {

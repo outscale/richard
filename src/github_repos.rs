@@ -58,6 +58,8 @@ impl Module for GithubRepos {
     async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 type RepoFullName = String;

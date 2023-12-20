@@ -51,6 +51,8 @@ impl Module for Help {
         let response = format!("Available commands are:\n{}", command_list);
         Some(vec![response])
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 #[derive(Clone)]

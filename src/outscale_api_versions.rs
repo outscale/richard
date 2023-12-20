@@ -70,6 +70,8 @@ impl Module for OutscaleApiVersions {
         }
         Some(vec![response])
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 impl OutscaleApiVersions {

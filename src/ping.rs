@@ -33,6 +33,8 @@ impl Module for Ping {
         trace!("responding to /ping");
         Some(vec!["pong".to_string()])
     }
+
+    async fn send_message(&mut self, _messages: Vec<String>) {}
 }
 
 #[derive(Clone)]

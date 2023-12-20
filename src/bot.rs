@@ -50,6 +50,7 @@ pub trait Module {
     async fn run(&mut self, variation: usize); // alternative to `variation`?
     async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>>;
+    async fn send_message(&mut self, messages: Vec<String>);
 }
 
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
