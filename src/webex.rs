@@ -116,7 +116,7 @@ impl WebexAgent {
     }
 
     pub async fn say<S: Into<String>>(&self, message: S) {
-        self.say_generic(message, false).await;
+        self.say_generic(message, true).await;
     }
 
     pub async fn say_generic<S: Into<String>>(&self, message: S, markdown: bool) {
