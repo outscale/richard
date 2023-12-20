@@ -41,7 +41,7 @@ impl Module for Webex {
         None
     }
 
-    async fn send_message(&mut self, messages: Vec<String>) {
+    async fn send_message(&mut self, messages: &[Message]) {
         for message in messages {
             self.agent.say(message).await;
         }

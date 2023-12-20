@@ -18,6 +18,7 @@ use std::env;
 use std::env::VarError;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc::channel;
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::sleep;
@@ -51,7 +52,7 @@ pub trait Module {
     async fn run(&mut self, variation: usize) -> Option<Vec<Message>>;
     async fn variation_durations(&mut self) -> Vec<Duration>;
     async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>>;
-    async fn send_message(&mut self, messages: Vec<String>);
+    async fn send_message(&mut self, messages: &[Message]);
 }
 
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
@@ -181,23 +182,48 @@ impl Bot {
             error!("no module enabled");
             return;
         }
+        let (mailbox_tx, mut mailbox_rx) = channel(100);
         self.send_modules().await;
         let mut tasks = JoinSet::new();
         for module in self.modules.iter_mut() {
             for (variation, duration) in module.variation_durations.iter().enumerate() {
                 let module = module.clone();
                 let duration = *duration;
+                let mailbox_tx = mailbox_tx.clone();
                 tasks.spawn(tokio::spawn(async move {
                     let module = module.clone();
                     loop {
                         let mut module_rw = module.module.write().await;
-                        module_rw.run(variation).await;
+                        if let Some(messages) = module_rw.run(variation).await {
+                            if let Err(err) = mailbox_tx.send(messages).await {
+                                error!("{}", err);
+                            }
+                        }
                         drop(module_rw);
                         sleep(duration).await;
                     }
                 }));
             }
         }
+        let modules = self.modules.clone();
+        tasks.spawn(tokio::spawn(async move {
+            let modules = modules;
+            loop {
+                match mailbox_rx.try_recv() {
+                    Ok(messages) => {
+                        for module in modules.iter() {
+                            if module.capabilities.send_message {
+                                let mut module_rw = module.module.write().await;
+                                module_rw.send_message(&messages).await;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        sleep(Duration::from_secs(10)).await;
+                    }
+                };
+            }
+        }));
         tasks.join_next().await;
     }
 

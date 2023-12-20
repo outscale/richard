@@ -36,7 +36,7 @@ impl Module for Ping {
         Some(vec!["pong".to_string()])
     }
 
-    async fn send_message(&mut self, _messages: Vec<String>) {}
+    async fn send_message(&mut self, _messages: &[Message]) {}
 }
 
 #[derive(Clone)]

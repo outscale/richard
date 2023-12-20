@@ -57,7 +57,7 @@ impl Module for Ollama {
         Some(vec![response])
     }
 
-    async fn send_message(&mut self, _messages: Vec<String>) {}
+    async fn send_message(&mut self, _messages: &[Message]) {}
 }
 
 impl Ollama {

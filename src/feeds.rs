@@ -69,7 +69,7 @@ impl Module for Feeds {
         None
     }
 
-    async fn send_message(&mut self, _messages: Vec<String>) {}
+    async fn send_message(&mut self, _messages: &[Message]) {}
 }
 
 impl Feeds {

@@ -53,7 +53,7 @@ impl Module for Hello {
         None
     }
 
-    async fn send_message(&mut self, _messages: Vec<String>) {}
+    async fn send_message(&mut self, _messages: &[Message]) {}
 }
 
 #[derive(Clone)]
