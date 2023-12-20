@@ -115,12 +115,6 @@ impl WebexAgent {
             .header("Authorization", &self.auth_header))
     }
 
-    pub async fn say_messages(&self, messages: Vec<String>) {
-        for message in messages.iter() {
-            self.say(message).await;
-        }
-    }
-
     pub async fn say<S: Into<String>>(&self, message: S) {
         self.say_generic(message, false).await;
     }

@@ -1,5 +1,4 @@
 use crate::utils::request_agent;
-use crate::webex::{self, WebexAgent};
 use log::{info, trace, warn};
 use serde::Deserialize;
 use std::env::{self, VarError};
@@ -9,9 +8,8 @@ use tokio::time::Duration;
 use crate::bot::{Message, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct OutscaleApiVersions {
-    webex: WebexAgent,
     endpoints: Vec<Endpoint>,
 }
 
@@ -22,29 +20,24 @@ impl Module for OutscaleApiVersions {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        [
-            webex::params(),
-            vec![
-                ModuleParam::new(
-                    "OUTSCALE_API_VERSIONS_0_NAME",
-                    "Outscale region name of the endpoint, can be multiple (0..)",
-                    false,
-                ),
-                ModuleParam::new(
-                    "OUTSCALE_API_VERSIONS_0_ENDPOINT",
-                    "Outscale region endpoint, can be multiple (0..)",
-                    false,
-                ),
-            ],
+        vec![
+            ModuleParam::new(
+                "OUTSCALE_API_VERSIONS_0_NAME",
+                "Outscale region name of the endpoint, can be multiple (0..)",
+                false,
+            ),
+            ModuleParam::new(
+                "OUTSCALE_API_VERSIONS_0_ENDPOINT",
+                "Outscale region endpoint, can be multiple (0..)",
+                false,
+            ),
         ]
-        .concat()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
 
     async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
-        self.run_version().await;
-        None
+        self.run_version().await
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
@@ -77,10 +70,7 @@ impl Module for OutscaleApiVersions {
 
 impl OutscaleApiVersions {
     pub fn new() -> Result<OutscaleApiVersions, VarError> {
-        let mut endpoints = OutscaleApiVersions {
-            endpoints: Vec::new(),
-            webex: WebexAgent::new()?,
-        };
+        let mut endpoints = OutscaleApiVersions::default();
         for i in 0..100 {
             let name = env::var(&format!("OUTSCALE_API_VERSIONS_{}_NAME", i));
             let endpoint = env::var(&format!("OUTSCALE_API_VERSIONS_{}_ENDPOINT", i));
@@ -99,15 +89,18 @@ impl OutscaleApiVersions {
         Ok(endpoints)
     }
 
-    pub async fn run_version(&mut self) {
-        let mut messages = Vec::<String>::new();
+    pub async fn run_version(&mut self) -> Option<Vec<Message>> {
+        let mut messages = Vec::<Message>::new();
         for endpoint in self.endpoints.iter_mut() {
             trace!("updating {} version", endpoint.name);
             if let Some(v) = endpoint.update_version().await {
                 messages.push(format!("New API version on {}: {}", endpoint.name, v));
             }
         }
-        self.webex.say_messages(messages).await;
+        if messages.is_empty() {
+            return None;
+        }
+        Some(messages)
     }
 }
 
