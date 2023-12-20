@@ -1,5 +1,6 @@
 use crate::bot::{
     Message, MessageCtx, MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam,
+    SharedModule,
 };
 use async_trait::async_trait;
 use log::trace;
@@ -46,9 +47,9 @@ impl Module for Triggers {
     }
 
     async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
-        let modules = self.chat_modules.clone();
-        for chat_module in modules {
-            self.grab_messages(&chat_module).await;
+        let chat_modules = self.chat_modules.clone();
+        for chat_module in chat_modules {
+            self.run_chat_module(chat_module.module.clone()).await;
         }
         None
     }
@@ -75,40 +76,42 @@ impl Triggers {
         Ok(Triggers::default())
     }
 
-    async fn grab_messages(&mut self, chat_module: &ModuleData) {
-        let mut module = chat_module.module.write().await;
-        let new_messages = match module.read_message().await {
+    async fn run_chat_module(&mut self, chat_module: SharedModule) {
+        let mut chat_module_rw = chat_module.write().await;
+        let new_messages = match chat_module_rw.read_message().await {
             Some(messages) => messages,
             None => return,
         };
-        drop(module);
+        drop(chat_module_rw);
 
         for message in new_messages {
             trace!("getting new message '{}'", message.content);
             let mut responses = Vec::<MessageResponse>::new();
             let mut triggered = false;
-            for module in self.trigger_modules.iter() {
-                if module.capabilities.catch_all {
-                    trace!("module {} catch all message", module.name);
-                    let mut module_rw = module.module.write().await;
-                    if let Some(mut mod_responses) = module_rw.trigger(&message.content).await {
-                        responses.append(&mut mod_responses);
+            for trigger_module in self.trigger_modules.iter() {
+                if trigger_module.capabilities.catch_all {
+                    trace!("module {} catch all message", trigger_module.name);
+                    let mut trigger_module_rw = trigger_module.module.write().await;
+                    if let Some(mut trigger_responses) =
+                        trigger_module_rw.trigger(&message.content).await
+                    {
+                        responses.append(&mut trigger_responses);
                     }
                 }
-                if let Some(triggers) = module.capabilities.triggers.as_ref() {
+                if let Some(triggers) = trigger_module.capabilities.triggers.as_ref() {
                     for trigger in triggers.iter() {
                         if message.content.contains(trigger) {
                             trace!(
                                 "module {} is triggered because message contains '{}'",
-                                module.name,
+                                trigger_module.name,
                                 trigger
                             );
                             triggered = true;
-                            let mut module_rw = module.module.write().await;
-                            if let Some(mut mod_responses) =
-                                module_rw.trigger(&message.content).await
+                            let mut trigger_module_rw = trigger_module.module.write().await;
+                            if let Some(mut trigger_responses) =
+                                trigger_module_rw.trigger(&message.content).await
                             {
-                                responses.append(&mut mod_responses);
+                                responses.append(&mut trigger_responses);
                             }
                         }
                     }
@@ -116,19 +119,24 @@ impl Triggers {
             }
             if !triggered {
                 trace!("no module has been triggered by message");
-                for module in self.trigger_modules.iter() {
-                    if module.capabilities.catch_non_triggered {
-                        trace!("module {} will catch non triggered message", module.name);
-                        let mut module_rw = module.module.write().await;
-                        if let Some(mut mod_responses) = module_rw.trigger(&message.content).await {
-                            responses.append(&mut mod_responses);
+                for trigger_module in self.trigger_modules.iter() {
+                    if trigger_module.capabilities.catch_non_triggered {
+                        trace!(
+                            "module {} will catch non triggered message",
+                            trigger_module.name
+                        );
+                        let mut trigger_module_rw = trigger_module.module.write().await;
+                        if let Some(mut trigger_responses) =
+                            trigger_module_rw.trigger(&message.content).await
+                        {
+                            responses.append(&mut trigger_responses);
                         }
                     }
                 }
             }
-            let mut module = chat_module.module.write().await;
+            let mut chat_module_rw = chat_module.write().await;
             for response in responses {
-                module.resp_message(message.clone(), response).await
+                chat_module_rw.resp_message(message.clone(), response).await
             }
         }
     }
