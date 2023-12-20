@@ -1,6 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
-use crate::webex;
-use crate::webex::WebexAgent;
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::trace;
 use rand::Rng;
@@ -8,9 +6,7 @@ use std::env::VarError;
 use tokio::time::Duration;
 
 #[derive(Clone)]
-pub struct Roll {
-    webex: WebexAgent,
-}
+pub struct Roll {}
 
 #[async_trait]
 impl Module for Roll {
@@ -19,7 +15,7 @@ impl Module for Roll {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        webex::params()
+        Vec::new()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -38,17 +34,15 @@ impl Module for Roll {
         }
     }
 
-    async fn trigger(&mut self, message: &str, id: &str) {
+    async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>> {
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
-        self.webex.respond(&response, id).await;
+        Some(vec![response])
     }
 }
 
 impl Roll {
     pub fn new() -> Result<Self, VarError> {
-        Ok(Roll {
-            webex: WebexAgent::new()?,
-        })
+        Ok(Roll {})
     }
 
     fn gen(request: &String) -> Option<String> {

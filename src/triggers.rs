@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -9,14 +9,14 @@ use tokio::time::Duration;
 #[derive(Clone)]
 pub struct Triggers {
     webex: WebexAgent,
-    all_modules: Vec<ModuleData>,
+    trigger_modules: Vec<ModuleData>,
 }
 
 impl Triggers {
     pub fn new() -> Result<Self, VarError> {
         Ok(Triggers {
             webex: WebexAgent::new()?,
-            all_modules: Vec::new(),
+            trigger_modules: Vec::new(),
         })
     }
 }
@@ -31,7 +31,7 @@ impl Module for Triggers {
     }
 
     async fn module_offering(&mut self, modules: &[ModuleData]) {
-        self.all_modules = modules
+        self.trigger_modules = modules
             .iter()
             .filter(|module| module.name != "triggers")
             .filter(|module| {
@@ -62,12 +62,15 @@ impl Module for Triggers {
 
         for message in new_messages.items {
             trace!("getting new message '{}'", message.text);
+            let mut responses = Vec::<MessageResponse>::new();
             let mut triggered = false;
-            for module in self.all_modules.iter() {
+            for module in self.trigger_modules.iter() {
                 if module.capabilities.catch_all {
                     trace!("module {} catch all message", module.name);
                     let mut module_rw = module.module.write().await;
-                    module_rw.trigger(&message.text, &message.id).await;
+                    if let Some(mut mod_responses) = module_rw.trigger(&message.text).await {
+                        responses.append(&mut mod_responses);
+                    }
                 }
                 if let Some(triggers) = module.capabilities.triggers.as_ref() {
                     for trigger in triggers.iter() {
@@ -79,20 +82,28 @@ impl Module for Triggers {
                             );
                             triggered = true;
                             let mut module_rw = module.module.write().await;
-                            module_rw.trigger(&message.text, &message.id).await;
+                            if let Some(mut mod_responses) = module_rw.trigger(&message.text).await
+                            {
+                                responses.append(&mut mod_responses);
+                            }
                         }
                     }
                 }
             }
             if !triggered {
                 trace!("no module has been triggered by message");
-                for module in self.all_modules.iter() {
+                for module in self.trigger_modules.iter() {
                     if module.capabilities.catch_non_triggered {
                         trace!("module {} will catch non triggered message", module.name);
                         let mut module_rw = module.module.write().await;
-                        module_rw.trigger(&message.text, &message.id).await;
+                        if let Some(mut mod_responses) = module_rw.trigger(&message.text).await {
+                            responses.append(&mut mod_responses);
+                        }
                     }
                 }
+            }
+            for response in responses {
+                self.webex.respond(&response, &message.id).await;
             }
         }
     }
@@ -101,5 +112,7 @@ impl Module for Triggers {
         vec![Duration::from_secs(10)]
     }
 
-    async fn trigger(&mut self, _message: &str, _id: &str) {}
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+        None
+    }
 }

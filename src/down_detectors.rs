@@ -8,7 +8,7 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
@@ -66,7 +66,7 @@ impl Module for DownDetectors {
         }
     }
 
-    async fn trigger(&mut self, _message: &str, id: &str) {
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /status");
         let mut response = String::new();
         for e in &self.watch_list {
@@ -76,7 +76,7 @@ impl Module for DownDetectors {
             );
             response.push_str(s.as_str());
         }
-        self.webex.respond(&response, id).await;
+        Some(vec![response])
     }
 }
 

@@ -38,6 +38,8 @@ impl ModuleParam {
     }
 }
 
+pub type MessageResponse = String;
+
 #[async_trait]
 pub trait Module {
     fn name(&self) -> &'static str;
@@ -46,7 +48,7 @@ pub trait Module {
     fn capabilities(&self) -> ModuleCapabilities;
     async fn run(&mut self, variation: usize); // alternative to `variation`?
     async fn variation_durations(&mut self) -> Vec<Duration>;
-    async fn trigger(&mut self, message: &str, id: &str);
+    async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>>;
 }
 
 pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;

@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;
 use crate::webex;
@@ -60,7 +60,9 @@ impl Module for GithubOrgs {
         vec![Duration::from_secs(3600), Duration::from_secs(day_s)]
     }
 
-    async fn trigger(&mut self, _message: &str, _id: &str) {}
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+        None
+    }
 }
 #[derive(Clone)]
 pub struct GithubOrgs {

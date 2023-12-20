@@ -1,6 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
-use crate::webex;
-use crate::webex::WebexAgent;
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::trace;
 use std::env::VarError;
@@ -13,7 +11,7 @@ impl Module for Ping {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        webex::params()
+        Vec::new()
     }
 
     async fn module_offering(&mut self, _modules: &[ModuleData]) {}
@@ -32,21 +30,17 @@ impl Module for Ping {
         }
     }
 
-    async fn trigger(&mut self, _message: &str, id: &str) {
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /ping");
-        self.webex.respond("pong", id).await;
+        Some(vec!["pong".to_string()])
     }
 }
 
 #[derive(Clone)]
-pub struct Ping {
-    webex: WebexAgent,
-}
+pub struct Ping {}
 
 impl Ping {
     pub fn new() -> Result<Self, VarError> {
-        Ok(Ping {
-            webex: WebexAgent::new()?,
-        })
+        Ok(Ping {})
     }
 }

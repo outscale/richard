@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::webex;
 use crate::webex::WebexAgent;
 use async_trait::async_trait;
@@ -52,7 +52,9 @@ impl Module for Hello {
         vec![Duration::from_secs(seven_day_s)]
     }
 
-    async fn trigger(&mut self, _message: &str, _id: &str) {}
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+        None
+    }
 }
 
 #[derive(Clone)]

@@ -1,6 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
-use crate::webex;
-use crate::webex::WebexAgent;
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::trace;
 use std::collections::HashSet;
@@ -14,7 +12,7 @@ impl Module for Help {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        webex::params()
+        Vec::new()
     }
 
     async fn module_offering(&mut self, modules: &[ModuleData]) {
@@ -41,7 +39,7 @@ impl Module for Help {
         }
     }
 
-    async fn trigger(&mut self, _message: &str, id: &str) {
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /help");
         let command_list = self
             .commands
@@ -51,25 +49,19 @@ impl Module for Help {
                 acc.push_str(command.as_str());
                 acc
             });
-        self.webex
-            .respond(
-                format!("Available commands are:\n{}", command_list).as_str(),
-                id,
-            )
-            .await;
+        let response = format!("Available commands are:\n{}", command_list);
+        Some(vec![response])
     }
 }
 
 #[derive(Clone)]
 pub struct Help {
-    webex: WebexAgent,
     commands: HashSet<String>,
 }
 
 impl Help {
     pub fn new() -> Result<Self, VarError> {
         Ok(Help {
-            webex: WebexAgent::new()?,
             commands: HashSet::new(),
         })
     }

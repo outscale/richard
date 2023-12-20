@@ -1,4 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use crate::utils::request_agent;
 use crate::webex;
 use crate::webex::WebexAgent;
@@ -56,7 +56,9 @@ impl Module for Webpages {
         vec![Duration::from_secs(60)]
     }
 
-    async fn trigger(&mut self, _message: &str, _id: &str) {}
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+        None
+    }
 }
 
 #[derive(Clone)]

@@ -6,7 +6,7 @@ use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
 
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 
 #[derive(Clone)]
@@ -58,7 +58,7 @@ impl Module for OutscaleApiVersions {
         }
     }
 
-    async fn trigger(&mut self, _message: &str, id: &str) {
+    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /status");
         let mut response = String::new();
         for e in &self.endpoints {
@@ -69,7 +69,7 @@ impl Module for OutscaleApiVersions {
             let s = format!("{}: version={}\n", e.name, version);
             response.push_str(s.as_str());
         }
-        self.webex.respond(&response, id).await;
+        Some(vec![response])
     }
 }
 

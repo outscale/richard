@@ -1,6 +1,4 @@
-use crate::bot::{Module, ModuleCapabilities, ModuleData, ModuleParam};
-use crate::webex;
-use crate::webex::WebexAgent;
+use crate::bot::{MessageResponse, Module, ModuleCapabilities, ModuleData, ModuleParam};
 use async_trait::async_trait;
 use log::error;
 use log::trace;
@@ -14,7 +12,6 @@ pub struct Ollama {
     model: String,
     endpoint: String,
     context: Vec<usize>,
-    webex: WebexAgent,
 }
 
 #[async_trait]
@@ -24,14 +21,10 @@ impl Module for Ollama {
     }
 
     fn params(&self) -> Vec<ModuleParam> {
-        [
-            webex::params(),
-            vec![
-                ModuleParam::new("OLLAMA_MODEL_NAME", "Ollama model name to use", true),
-                ModuleParam::new("OLLAMA_URL", "ollama URL to query", true),
-            ],
+        vec![
+            ModuleParam::new("OLLAMA_MODEL_NAME", "Ollama model name to use", true),
+            ModuleParam::new("OLLAMA_URL", "ollama URL to query", true),
         ]
-        .concat()
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
@@ -50,17 +43,16 @@ impl Module for Ollama {
         vec![Duration::from_secs(100)]
     }
 
-    async fn trigger(&mut self, message: &str, id: &str) {
+    async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>> {
         trace!("respond on any other message");
-        match self.query(message).await {
-            Ok(message) => self.webex.respond(&message, id).await,
+        let response = match self.query(message).await {
+            Ok(resp) => resp,
             Err(err) => {
                 error!("ollama responded: {:#?}", err);
-                self.webex
-                    .respond("Sorry, I can't respond to that right now.", id)
-                    .await
+                "Sorry, I can't respond to that right now.".to_string()
             }
         };
+        Some(vec![response])
     }
 }
 
@@ -70,7 +62,6 @@ impl Ollama {
             model: env::var("OLLAMA_MODEL_NAME")?,
             endpoint: env::var("OLLAMA_URL")?,
             context: Vec::new(),
-            webex: WebexAgent::new()?,
         })
     }
 
