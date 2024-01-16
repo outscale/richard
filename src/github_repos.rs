@@ -166,7 +166,7 @@ impl GithubRepo {
                 .is_none()
                 && !release.is_too_old()
             {
-                all_messages.push(release.notification_message());
+                all_messages.push(release.notification_message(&self.full_name));
             }
         }
         self.releases = Some(past_releases);
@@ -293,10 +293,10 @@ struct Release {
 }
 
 impl Release {
-    fn notification_message(&self) -> String {
+    fn notification_message(&self, project_name: &String) -> String {
         format!(
             "👋 Release de [{} {}]({})",
-            self.name, self.tag_name, self.html_url
+            project_name, self.name, self.html_url
         )
     }
 
