@@ -1,11 +1,12 @@
 [package]
 name = "richard"
 version = "0.1.0"
-authors = ["Jérôme Jutteau <jerome.jutteau@outscale.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+edition = "2021"
+authors = ["OpenSource Team <opensource@outscale.com>"]
+license = "BSD-3-Clause"
+description = "richard is a modular chatbot"
+repository = "https://github.com/outscale/richard"
+readme = "README.md"
 
 [dependencies]
 reqwest = {version = "0.11.22", default-features = false, features = ["json", "rustls-tls"]}
