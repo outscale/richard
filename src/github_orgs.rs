@@ -4,14 +4,15 @@ use crate::bot::{
 use crate::github_repos::{self, GithubRepo};
 use crate::utils::request_agent;
 use async_trait::async_trait;
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
+use std::error::Error;
 use tokio::time::Duration;
 
-const DEFAULT_ITEM_PER_PAGE: usize = 60;
+const DEFAULT_ITEM_PER_PAGE: usize = 100;
 
 #[async_trait]
 impl Module for GithubOrgs {
@@ -153,8 +154,12 @@ impl GithubOrg {
     }
 
     async fn update_repo_listing(&mut self) {
-        let Ok(repos) = self.get_all_org_repos().await else {
-            return;
+        let repos = match self.get_all_org_repos().await {
+            Ok(repos) => repos,
+            Err(err) => {
+                error!("cannot fetch all org repos: {:#?}", err);
+                return;
+            }
         };
         for repo in repos {
             let full_name = repo.full_name;
@@ -169,20 +174,24 @@ impl GithubOrg {
         }
     }
 
-    async fn get_all_org_repos(&mut self) -> Result<Vec<GithubRepoLight>, reqwest::Error> {
-        let agent = request_agent()?;
-        let url = format!("https://api.github.com/orgs/{}/repos", self.name);
+    async fn get_all_org_repos(&mut self) -> Result<Vec<GithubRepoLight>, Box<dyn Error>> {
+        debug!("fetching all repos for {} organization", self.name);
         let mut page = 1;
         let mut repo_listing: Vec<GithubRepoLight> = Vec::new();
         let default_items_per_page = DEFAULT_ITEM_PER_PAGE.to_string();
         loop {
+            trace!("fetching {} org repos: page {}", self.name, page);
             let page_str = page.to_string();
             let mut params = HashMap::new();
             params.insert("type", "public");
             params.insert("per_page", &default_items_per_page);
             params.insert("page", page_str.as_str());
+            params.insert("sort", "full_name");
+            let url = format!("https://api.github.com/orgs/{}/repos", self.name);
+            let url = reqwest::Url::parse_with_params(&url, &params)?;
+            let agent = request_agent()?;
             let resp = match agent
-                .get(&url)
+                .get(url.as_str())
                 .header("Authorization", &format!("token {}", self.github_token))
                 .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
@@ -205,7 +214,7 @@ impl GithubOrg {
                 }
             };
 
-            let mut json: Vec<GithubRepoLight> = match serde_json::from_str(&body) {
+            let mut fetched_repos: Vec<GithubRepoLight> = match serde_json::from_str(&body) {
                 Err(e) => {
                     error!("cannot deserializing all repo for {}: {}", self.name, e);
                     trace!("cannot deserializing all repo. Body: {}", body);
@@ -214,16 +223,25 @@ impl GithubOrg {
                 Ok(body) => body,
             };
 
-            let size = json.len();
+            let size = fetched_repos.len();
+            trace!(
+                "{} org: fetched {} repos in this page: {:#?}",
+                self.name,
+                size,
+                fetched_repos
+                    .iter()
+                    .map(|r| &r.full_name)
+                    .collect::<Vec::<&String>>()
+            );
 
-            repo_listing.append(&mut json);
+            repo_listing.append(&mut fetched_repos);
 
             if size < DEFAULT_ITEM_PER_PAGE {
                 break;
             }
             page += 1;
         }
-        trace!(
+        debug!(
             "get all reprositories from {} organisation: {} found",
             self.name,
             repo_listing.len()
@@ -232,7 +250,7 @@ impl GithubOrg {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct GithubRepoLight {
     full_name: String,
 }
