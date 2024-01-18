@@ -1,8 +1,9 @@
 # Richard
 [![Project Sandbox](https://docs.outscale.com/fr/userguide/_images/Project-Sandbox-yellow.svg)](https://docs.outscale.com/en/userguide/Open-Source-Projects.html)
 
-Richard is a friendly chatbot who loves FOSS.
-It get into a room and speak whenever he wants.
+Richard is a friendly chatbot which can help you trigger alerts.
+
+For now, the bot only support Webex room to speak for has a modular architecture to add any other communication protocols.
 
 # Features
 
