@@ -4,7 +4,7 @@ use crate::bot::{
 use crate::utils::request_agent;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -117,6 +117,7 @@ impl GithubRepo {
     }
 
     pub async fn run(&mut self) -> Option<Vec<Message>> {
+        debug!("github_repo: checking for repo {}", self.full_name);
         if self.details.is_none() {
             self.get_repo_details().await;
         }
@@ -221,6 +222,7 @@ impl GithubRepo {
     }
 
     async fn get_releases(&self) -> Option<Vec<Release>> {
+        debug!("getting all releases for github repo {}", self.full_name);
         let Ok(agent) = request_agent() else {
             return None;
         };
