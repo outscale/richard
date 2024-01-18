@@ -15,7 +15,7 @@ use tokio::time::Duration;
 #[async_trait]
 impl Module for Webex {
     fn name(&self) -> &'static str {
-        "hello"
+        "webex"
     }
 
     fn params(&self) -> Vec<ModuleParam> {
