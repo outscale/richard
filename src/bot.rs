@@ -12,7 +12,7 @@ use crate::triggers::Triggers;
 use crate::webex::Webex;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
@@ -203,7 +203,9 @@ impl Bot {
                 tasks.spawn(tokio::spawn(async move {
                     let module = module.clone();
                     loop {
+                        debug!("{}: wait for module write lock", module.name);
                         let mut module_rw = module.module.write().await;
+                        debug!("{}: run({})", module.name, variation);
                         if let Some(messages) = module_rw.run(variation).await {
                             if let Err(err) = mailbox_tx.send(messages).await {
                                 error!("{}", err);
