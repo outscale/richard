@@ -223,22 +223,25 @@ impl GithubRepo {
 
     async fn get_releases(&self) -> Option<Vec<Release>> {
         debug!("getting all releases for github repo {}", self.full_name);
-        let Ok(agent) = request_agent() else {
-            return None;
-        };
-        let url = format!("https://api.github.com/repos/{}/releases", self.full_name);
         let mut page = 1;
         let mut release_list: Vec<Release> = Vec::new();
         let default_items_per_page = DEFAULT_ITEM_PER_PAGE.to_string();
 
         loop {
+            let Ok(agent) = request_agent() else {
+                return None;
+            };
             let page_str = page.to_string();
             let mut params = HashMap::new();
             params.insert("type", "public");
             params.insert("per_page", &default_items_per_page);
             params.insert("page", page_str.as_str());
+            let url = format!("https://api.github.com/repos/{}/releases", self.full_name);
+            let Ok(url) = reqwest::Url::parse_with_params(&url, &params) else {
+                break;
+            };
             let resp = match agent
-                .get(&url)
+                .get(url.as_str())
                 .header("Authorization", &format!("token {}", self.github_token))
                 .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
