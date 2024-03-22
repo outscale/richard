@@ -199,7 +199,7 @@ impl DownDetector {
         const HIGH: u8 = 6;
         const MAX_HIGH: u8 = 10;
         let alive_old = self.alive;
-        match self.test_url().await {
+        self.access_failure_cnt = match self.test_url().await {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
             Err(e) => {
                 self.last_error = Some(e);
@@ -212,6 +212,12 @@ impl DownDetector {
             (false, LOW) => true,
             _ => self.alive,
         };
+        if alive_old != self.alive {
+            warn!(
+                "{}: alive went from {} to {}",
+                self.name, alive_old, self.alive
+            );
+        }
         (alive_old, self.alive)
     }
 
