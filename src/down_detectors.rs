@@ -289,9 +289,9 @@ impl ToString for DownDetectorError {
     fn to_string(&self) -> String {
         match self {
             DownDetectorError::AgentInit(err) => format!("Internal error: {}", err),
-            DownDetectorError::Code(503) => "API has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
-            DownDetectorError::Code(other) => format!("API is down (error code: {})", other),
-            DownDetectorError::Transport(transport) => format!("API seems down (transport error: {})", transport),
+            DownDetectorError::Code(503) => "target has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
+            DownDetectorError::Code(other) => format!("target is down (error code: {})", other),
+            DownDetectorError::Transport(transport) => format!("target seems down (transport error: {})", transport),
         }
     }
 }
