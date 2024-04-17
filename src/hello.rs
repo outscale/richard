@@ -68,7 +68,7 @@ impl Hello {
     }
 }
 
-const ALL_QUOTES: [(&str, &str); 54] = [
+const ALL_QUOTES: [(&str, &str); 55] = [
     // The following quotes are from https://en.wikiquote.org/  Creative Commons Attribution-ShareAlike License
     ("Linus Torvalds", "I'm doing a (free) operating system (just a hobby, won't be big and professional like gnu) for 386(486) AT clones."),
     ("Linus Torvalds", "Making Linux GPL'd was definitely the best thing I ever did."),
@@ -124,6 +124,7 @@ const ALL_QUOTES: [(&str, &str); 54] = [
     ("Lydia Whitmore", "Collaborating is actually one of the strongest things you can do – to open yourself and your ideas up to someone else’s perspective."),
     ("Amit Ray", "Collaboration has no hierarchy. The Sun collaborates with soil to bring flowers on the earth."),
     ("Louisa May Alcott", "It takes two flints to make a fire."),
+    ("Reid Hoffman", "No matter how brilliant your mind or strategy, if you're playing a solo game, you'll always lose out to a team."),
     // From Half-Life documentary https://www.youtube.com/watch?v=TbZ3HzvFEto&t=1723s
     ("Gabe Newell", "Late is just for a little while. Suck is forever right? We could try to force this thing (half-life) out the door, but that's not the company we want to be. That's not the people we want to be."),
 ];
