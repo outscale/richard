@@ -9,7 +9,7 @@ repository = "https://github.com/outscale/richard"
 readme = "README.md"
 
 [dependencies]
-reqwest = {version = "0.12.0", default-features = false, features = ["http2", "json", "rustls-tls"]}
+reqwest = {version = "0.12.4", default-features = false, features = ["http2", "json", "rustls-tls"]}
 tokio = { version = "1", features = ["full"] }
 env_logger = "0.10.0"
 feed-rs = "1.2.0"
