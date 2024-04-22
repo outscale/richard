@@ -101,8 +101,19 @@ impl OutscaleApiVersions {
         let mut messages = Vec::<Message>::new();
         for endpoint in self.endpoints.iter_mut() {
             trace!("updating {} version", endpoint.name);
-            if let Some(v) = endpoint.update_version().await {
-                messages.push(format!("New API version on {}: {}", endpoint.name, v));
+            let old_version = endpoint.version.clone();
+            if let Some(current_version) = endpoint.update_version().await {
+                if let Some(old_version) = old_version {
+                    messages.push(format!(
+                        "New API version on {}: {} -> {}",
+                        endpoint.name, old_version, current_version
+                    ));
+                } else {
+                    messages.push(format!(
+                        "New API version on {}: {}",
+                        endpoint.name, current_version
+                    ));
+                }
             }
         }
         if messages.is_empty() {
