@@ -72,7 +72,7 @@ impl Module for DownDetectors {
         let mut response = String::new();
         for e in &self.watch_list {
             let s = format!(
-                "{}: alive={}, error_rate={}\n",
+                "{}: alive={}, error_rate={:.2}\n",
                 e.name, e.alive, e.error_rate
             );
             response.push_str(s.as_str());
