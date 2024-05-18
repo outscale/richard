@@ -20,7 +20,7 @@ regex = "1.10.4"
 serde = {version = "1.0.197", features = ["derive"]}
 serde_json = "1.0.114"
 simple-error = "0.3.0"
-chrono = "0.4.35"
+chrono = "0.4.38"
 async-trait = "0.1.80"
 clap = { version = "4.5.4", features = ["cargo"] }
 
