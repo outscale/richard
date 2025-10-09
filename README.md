@@ -3,7 +3,7 @@
 
 Richard is a friendly chatbot which can help you trigger alerts.
 
-For now, the bot only support Webex room to speak for has a modular architecture to add any other communication protocols.
+For now, the bot only support Webex room to speak. However, it has a modular architecture which should allow to add any other communication protocol.
 
 # Features
 
@@ -16,11 +16,11 @@ Available modules:
 - triggers: allow commands to be sent to all other modules
 - down_detectors: watch for one or more URL. Alert when target goes down
 - github_orgs: watch for all releases of all repositories of one or more github organisation
-- github_repos: watch one or more specific githib repositories, trigger message on new release
+- github_repos: watch one or more specific github repositories, trigger message on new release
 - hello: send a random quote at a specific time interval
 - ollama: interface with [ollama API](https://ollama.ai/), respond when no command is triggered
 - feeds: watch for one or more RSS feeds, alert on new items
-- roll: responds to /roll commands. e.g. /roll 1d20
+- roll: responds to /roll commands. e.g. to roll 2 dices with 20 faces /roll 2d20
 - webpages: watch for one or more webpages. Alert when page content change.
 - outscale_api_versions: watch for new API version of one or more Outscale API endpoints
 
@@ -39,7 +39,7 @@ If you need to have a static binary:
 Parameters are passed through environment variables. See [config.env.ori](./config.env.ori) example.
 Use `--show-params` flag to print all needed var env per modules
 
-As a facility, you can:
+To simplify, you can:
 1. copy `config.env.ori` to `config.env`
 2. edit `config.env`
 3. load options by running `source config.env`
