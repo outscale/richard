@@ -1,51 +1,130 @@
 # Richard
-[![Project Sandbox](https://docs.outscale.com/fr/userguide/_images/Project-Sandbox-yellow.svg)](https://docs.outscale.com/en/userguide/Open-Source-Projects.html)
 
-Richard is a friendly chatbot which can help you trigger alerts.
+[![Project Sandbox](https://docs.outscale.com/fr/userguide/_images/Project-Sandbox-yellow.svg)](https://docs.outscale.com/en/userguide/Open-Source-Projects.html) [![](https://dcbadge.limes.pink/api/server/HUVtY5gT6s?style=flat&theme=default-inverted)](https://discord.gg/HUVtY5gT6s)
 
-For now, the bot only support Webex room to speak for has a modular architecture to add any other communication protocols.
+<p align="center">
+  <img alt="Chatbot Icon" src="https://img.icons8.com/?size=80&id=VwKX31ZGdnYL&format=png&color=000000" width="80px">
+  <br/>
+  <strong>A modular Rust-based chatbot for triggering alerts and integrations.</strong>
+</p>
 
-# Features
+---
 
-Richard is modular and every module must be explicitely enabled.
+## 🌐 Links
 
-Available modules:
-- webex: interface with Webex chat service
-- ping: responds to /ping commands with "pong"
-- help: responds to /help command
-- triggers: allow commands to be sent to all other modules
-- down_detectors: watch for one or more URL. Alert when target goes down
-- github_orgs: watch for all releases of all repositories of one or more github organisation
-- github_repos: watch one or more specific githib repositories, trigger message on new release
-- hello: send a random quote at a specific time interval
-- ollama: interface with [ollama API](https://ollama.ai/), respond when no command is triggered
-- feeds: watch for one or more RSS feeds, alert on new items
-- roll: responds to /roll commands. e.g. /roll 1d20
-- webpages: watch for one or more webpages. Alert when page content change.
-- outscale_api_versions: watch for new API version of one or more Outscale API endpoints
+* 🔧 Example Configuration: [config.env.ori](./config.env.ori)
+* 🛠 Contribution Guide: [CONTRIBUTING.md](./CONTRIBUTING.md)
+* 💬 Join us on [Discord](https://discord.gg/YOUR_INVITE_CODE)
 
-# Build
+---
 
-1. Install [Rustlang](https://www.rust-lang.org/)
-2. Run `cargo build --release`
+## 📄 Table of Contents
 
-If you need to have a static binary:
-1. Install musl toolchain: `rustup target add x86_64-unknown-linux-musl`
-2. Install `musl-gcc` (for Debian `apt install musl-tools`)
-3. Build with `cargo build --target x86_64-unknown-linux-musl --release`
+* [Overview](#-overview)
+* [Features](#-features)
+* [Requirements](#-requirements)
+* [Installation](#-installation)
+* [Configuration](#-configuration)
+* [Usage](#-usage)
+* [License](#-license)
 
-# Configure
+---
 
-Parameters are passed through environment variables. See [config.env.ori](./config.env.ori) example.
-Use `--show-params` flag to print all needed var env per modules
+## 🧭 Overview
 
-As a facility, you can:
-1. copy `config.env.ori` to `config.env`
-2. edit `config.env`
-3. load options by running `source config.env`
+**Richard** is a friendly, modular chatbot that helps trigger alerts and interact with external services.
 
-# Run
+It is designed to be extensible via standalone modules and currently supports integration with **Webex**, **GitHub**, **RSS feeds**, **Ollama**, and more.
 
+---
+
+## ✨ Features
+
+Richard has a modular design — each feature must be explicitly enabled via configuration.
+
+### Available Modules
+
+| Module                  | Description                                                             |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `webex`                 | Interface with Webex chat service                                       |
+| `ping`                  | Responds to `/ping` with `pong`                                         |
+| `help`                  | Responds to `/help` command                                             |
+| `triggers`              | Dispatches commands to all enabled modules                              |
+| `down_detectors`        | Monitors one or more URLs; alerts if a target becomes unreachable       |
+| `github_orgs`           | Watches for new releases across all repos in one or more GitHub orgs    |
+| `github_repos`          | Watches specific GitHub repos for new releases                          |
+| `hello`                 | Sends random quotes at regular time intervals                           |
+| `ollama`                | Integrates with [Ollama API](https://ollama.ai/) as a default responder |
+| `feeds`                 | Monitors RSS feeds and alerts on new items                              |
+| `roll`                  | Responds to `/roll` dice commands (e.g. `/roll 1d20`)                   |
+| `webpages`              | Monitors webpages and alerts when content changes                       |
+| `outscale_api_versions` | Watches for new Outscale API versions on selected endpoints             |
+
+---
+
+## ✅ Requirements
+
+* [Rust toolchain](https://www.rust-lang.org/tools/install)
+* `musl-tools` (optional, for building static binaries)
+
+---
+
+## ⚙ Installation
+
+### Build for your platform
+
+```bash
+cargo build --release
 ```
-source myconf.env && cargo run
+
+### Build a static binary
+
+```bash
+rustup target add x86_64-unknown-linux-musl
+sudo apt install musl-tools         # For Debian/Ubuntu
+cargo build --target x86_64-unknown-linux-musl --release
 ```
+
+---
+
+## ⚙ Configuration
+
+Richard is configured using environment variables.
+
+1. Copy the sample config:
+
+   ```bash
+   cp config.env.ori config.env
+   ```
+2. Edit the file:
+
+   ```bash
+   vim config.env
+   ```
+3. Load it:
+
+   ```bash
+   source config.env
+   ```
+
+To see required variables per module:
+
+```bash
+./target/release/richard --show-params
+```
+
+---
+
+## 🚀 Usage
+
+```bash
+source config.env
+cargo run
+```
+
+---
+
+## 📜 License
+
+**Richard** is licensed under the BSD 3-Clause License.
+© Outscale SAS
