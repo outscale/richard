@@ -3,7 +3,7 @@
 
 Richard is a friendly chatbot which can help you trigger alerts.
 
-For now, the bot only support Webex room to speak. However, it has a modular architecture which should allow to add any other communication protocol.
+For now, the bot only supports speaking in a Webex room. However, it has a modular architecture which should allow to add other communication protocols.
 
 # Features
 
