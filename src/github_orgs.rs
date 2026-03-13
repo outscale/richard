@@ -81,7 +81,7 @@ impl GithubOrgs {
     pub fn new() -> Result<Self, VarError> {
         let mut orgs = GithubOrgs { orgs: Vec::new() };
         for i in 0..100 {
-            let org_name = env::var(&format!("GITHUB_ORG_{}_NAME", i));
+            let org_name = env::var(format!("GITHUB_ORG_{}_NAME", i));
             match org_name {
                 Ok(org_name) => {
                     info!("github organisation configured: {}", org_name);

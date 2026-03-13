@@ -5,7 +5,7 @@ use crate::utils::request_agent;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
 use log::{debug, error, info, trace, warn};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
@@ -78,7 +78,7 @@ impl GithubRepos {
             repos: HashMap::new(),
         };
         for i in 0..100 {
-            let var_fullname = env::var(&format!("GITHUB_REPOS_{}_FULLNAME", i));
+            let var_fullname = env::var(format!("GITHUB_REPOS_{}_FULLNAME", i));
             match var_fullname {
                 Ok(fullname) => {
                     info!("github repo configured: {}", fullname);
@@ -157,9 +157,7 @@ impl GithubRepo {
             return None;
         }
 
-        let Some(mut past_releases) = self.releases.take() else {
-            return None;
-        };
+        let mut past_releases = self.releases.take()?;
         let mut all_messages = Vec::new();
         for release in current_releases {
             if past_releases
@@ -325,17 +323,6 @@ impl Release {
     fn id(&self) -> String {
         self.tag_name.clone()
     }
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct QueryVersions {
-    pub event_type: String,
-    pub client_payload: QueryVersionsClientPayload,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct QueryVersionsClientPayload {
-    pub versions: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

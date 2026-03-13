@@ -80,8 +80,8 @@ impl OutscaleApiVersions {
     pub fn new() -> Result<OutscaleApiVersions, VarError> {
         let mut endpoints = OutscaleApiVersions::default();
         for i in 0..100 {
-            let name = env::var(&format!("OUTSCALE_API_VERSIONS_{}_NAME", i));
-            let endpoint = env::var(&format!("OUTSCALE_API_VERSIONS_{}_ENDPOINT", i));
+            let name = env::var(format!("OUTSCALE_API_VERSIONS_{}_NAME", i));
+            let endpoint = env::var(format!("OUTSCALE_API_VERSIONS_{}_ENDPOINT", i));
             match (name, endpoint) {
                 (Ok(name), Ok(endpoint)) => {
                     info!("outscale api version on {} is configured", name);
