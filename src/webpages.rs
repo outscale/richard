@@ -75,8 +75,8 @@ impl Webpages {
     pub fn new() -> Result<Self, VarError> {
         let mut webpages = Webpages::default();
         for i in 0..100 {
-            let name = env::var(&format!("WEBPAGES_{}_NAME", i));
-            let url = env::var(&format!("WEBPAGES_{}_URL", i));
+            let name = env::var(format!("WEBPAGES_{}_NAME", i));
+            let url = env::var(format!("WEBPAGES_{}_URL", i));
             match (name, url) {
                 (Ok(name), Ok(url)) => {
                     info!("webpage configured: '{}' on url '{}'", name, url);

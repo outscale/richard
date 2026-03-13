@@ -74,8 +74,8 @@ impl Feeds {
     pub fn new() -> Result<Feeds, VarError> {
         let mut feeds = Feeds::default();
         for i in 0..100 {
-            let name = env::var(&format!("FEED_{}_NAME", i));
-            let url = env::var(&format!("FEED_{}_URL", i));
+            let name = env::var(format!("FEED_{}_NAME", i));
+            let url = env::var(format!("FEED_{}_URL", i));
             match (name, url) {
                 (Ok(name), Ok(url)) => {
                     info!("feed configured: {} ({}), ", name, url);

@@ -5,6 +5,7 @@ use reqwest::StatusCode;
 use std::cmp::min;
 use std::env::{self, VarError};
 use std::error::Error;
+use std::fmt::Display;
 use tokio::time::Duration;
 
 use crate::bot::{
@@ -95,8 +96,8 @@ impl DownDetectors {
             watch_list: Vec::new(),
         };
         for i in 0..100 {
-            let name = env::var(&format!("DOWN_DETECTORS_{}_NAME", i));
-            let url = env::var(&format!("DOWN_DETECTORS_{}_URL", i));
+            let name = env::var(format!("DOWN_DETECTORS_{}_NAME", i));
+            let url = env::var(format!("DOWN_DETECTORS_{}_URL", i));
             match (name, url) {
                 (Ok(name), Ok(url)) => {
                     info!("down detector on {} configured", name);
@@ -245,12 +246,7 @@ impl DownDetector {
                         error!("{}", err.to_string());
                         None
                     }
-                    err => Some(format!(
-                        "[{}]({}): {}",
-                        self.name,
-                        self.url,
-                        err.to_string()
-                    )),
+                    err => Some(format!("[{}]({}): {}", self.name, self.url, err,)),
                 },
                 None => Some(format!(
                     "[{}]({}) seems down (no reason found)",
@@ -285,13 +281,13 @@ impl DownDetectorError {
     }
 }
 
-impl ToString for DownDetectorError {
-    fn to_string(&self) -> String {
+impl Display for DownDetectorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DownDetectorError::AgentInit(err) => format!("Internal error: {}", err),
-            DownDetectorError::Code(503) => "target has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding".to_string(),
-            DownDetectorError::Code(other) => format!("target is down (error code: {})", other),
-            DownDetectorError::Transport(transport) => format!("target seems down (transport error: {})", transport),
+            DownDetectorError::AgentInit(err) => write!(f, "Internal error: {}", err),
+            DownDetectorError::Code(503) => write!(f, "target has been very properly put in maintenance mode by the wonderful ops team, thanks for your understanding"),
+            DownDetectorError::Code(other) => write!(f, "target is down (error code: {})", other),
+            DownDetectorError::Transport(transport) => write!(f, "target seems down (transport error: {})", transport),
         }
     }
 }
