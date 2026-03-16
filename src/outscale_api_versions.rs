@@ -123,14 +123,19 @@ impl OutscaleApiVersions {
                     alive_versions.push(version_name.clone());
                 }
             }
-            messages.push(format!(
-                "{}: API version(s) not reachable anymore: {}. Current active version(s): {}. Type /oapi-versions for all details.",
-                endpoint.name,
-                dead_versions.join(", "),
-                alive_versions.join(", ")
-            ));
+            for v in &dead_versions {
+                endpoint.versions.remove(v);
+            }
+            if !dead_versions.is_empty() {
+                messages.push(format!(
+                    "{}: API version(s) not reachable anymore: {}. Current active version(s): {}. Type /oapi-versions for all details.",
+                    endpoint.name,
+                    dead_versions.join(", "),
+                    alive_versions.join(", ")
+                ));
+            }
         }
-        None
+        Some(messages)
     }
 }
 
