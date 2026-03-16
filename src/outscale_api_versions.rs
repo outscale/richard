@@ -1,6 +1,7 @@
 use crate::utils::request_agent;
-use log::{info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::env::{self, VarError};
 use std::error::Error;
 use tokio::time::Duration;
@@ -43,7 +44,7 @@ impl Module for OutscaleApiVersions {
     }
 
     async fn variation_durations(&mut self) -> Vec<Duration> {
-        vec![Duration::from_secs(600)]
+        vec![Duration::from_secs(30)]
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
@@ -54,14 +55,19 @@ impl Module for OutscaleApiVersions {
     }
 
     async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
-        trace!("responding to /status");
+        trace!("responding to /oapi-versions");
         let mut response = String::new();
-        for e in &self.endpoints {
-            let version = match &e.version {
-                Some(v) => v.clone(),
-                None => "unkown".to_string(),
-            };
-            let s = format!("{}: version={}\n", e.name, version);
+        for endpoint in &self.endpoints {
+            let mut versions = endpoint
+                .versions
+                .keys()
+                .cloned()
+                .collect::<Vec<String>>()
+                .join(", ");
+            if versions.is_empty() {
+                versions = "unknown".to_string();
+            }
+            let s = format!("{}: version(s): {}\n", endpoint.name, versions);
             response.push_str(s.as_str());
         }
         Some(vec![response])
@@ -100,26 +106,31 @@ impl OutscaleApiVersions {
     pub async fn run_version(&mut self) -> Option<Vec<Message>> {
         let mut messages = Vec::<Message>::new();
         for endpoint in self.endpoints.iter_mut() {
-            trace!("updating {} version", endpoint.name);
-            let old_version = endpoint.version.clone();
-            if let Some(current_version) = endpoint.update_version().await {
-                if let Some(old_version) = old_version {
-                    messages.push(format!(
-                        "New API version on {}: {} -> {}",
-                        endpoint.name, old_version, current_version
-                    ));
+            trace!("getting {} endpoint's version", endpoint.name);
+            if let Err(err) = endpoint.update_version().await {
+                error!(
+                    "error while getting endpoint's version {}: {}",
+                    endpoint.name, err
+                );
+            };
+            let mut alive_versions = Vec::<String>::new();
+            let mut dead_versions = Vec::<String>::new();
+            for (version_name, cnt) in endpoint.versions.iter_mut() {
+                *cnt = cnt.saturating_sub(1);
+                if *cnt == 0 {
+                    dead_versions.push(version_name.clone());
                 } else {
-                    messages.push(format!(
-                        "New API version on {}: {}",
-                        endpoint.name, current_version
-                    ));
+                    alive_versions.push(version_name.clone());
                 }
             }
+            messages.push(format!(
+                "{}: API version(s) not reachable anymore: {}. Current active version(s): {}. Type /oapi-versions for all details.",
+                endpoint.name,
+                dead_versions.join(", "),
+                alive_versions.join(", ")
+            ));
         }
-        if messages.is_empty() {
-            return None;
-        }
-        Some(messages)
+        None
     }
 }
 
@@ -127,7 +138,8 @@ impl OutscaleApiVersions {
 struct Endpoint {
     name: String,
     endpoint: String,
-    version: Option<String>,
+    // Name -> Counter
+    versions: HashMap<String, u8>,
 }
 
 impl Endpoint {
@@ -135,20 +147,14 @@ impl Endpoint {
         Endpoint {
             name,
             endpoint,
-            version: None,
+            versions: HashMap::new(),
         }
     }
 
-    // return new version if updated
-    // return None on first update
-    async fn update_version(&mut self) -> Option<String> {
-        let version = Some(self.get_version().await.ok()?);
-        let mut ret = None;
-        if self.version.is_some() && version != self.version {
-            ret = version.clone();
-        }
-        self.version = version;
-        ret
+    async fn update_version(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let version = self.get_version().await?;
+        self.versions.insert(version, 255);
+        Ok(())
     }
 
     async fn get_version(&self) -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -159,6 +165,7 @@ impl Endpoint {
             .text()
             .await?;
         let response: VersionResponse = serde_json::from_str(body.as_str())?;
+        debug!("endpoint {} read version {}", self.name, response.version);
         Ok(response.version)
     }
 }
