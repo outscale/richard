@@ -1,0 +1,29 @@
+# Build artefacts
+target/
+**/target/
+*.o
+*.so
+*.a
+
+# VCS metadata
+.git/
+.gitignore
+.gitattributes
+
+# CI / editor noise
+.github/
+.idea/
+.vscode/
+*.swp
+
+# Env
+*.env
+.env
+.env.*
+!.env.ori
+config.env
+
+# Docker / repo meta
+Dockerfile
+.dockerignore
+Makefile
