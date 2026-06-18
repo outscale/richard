@@ -243,7 +243,7 @@ impl DownDetector {
             (true, false) => match &self.last_error {
                 Some(error) => match error {
                     DownDetectorError::AgentInit(err) => {
-                        error!("{}", err.to_string());
+                        error!("{}", err);
                         None
                     }
                     err => Some(format!("[{}]({}): {}", self.name, self.url, err,)),

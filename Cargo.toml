@@ -9,20 +9,20 @@ repository = "https://github.com/outscale/richard"
 readme = "README.md"
 
 [dependencies]
-reqwest = {version = "0.12.4", default-features = false, features = ["http2", "json", "rustls-tls"]}
+reqwest = {version = "0.13.4", default-features = false, features = ["http2", "json", "default-tls", "form"]}
 tokio = { version = "1", features = ["full"] }
-env_logger = "0.10.0"
-feed-rs = "1.2.0"
+env_logger = "0.11.10"
+feed-rs = "2.3.1"
 lazy_static = "1.4.0"
-log = "0.4.17"
-rand = "0.8.2"
+log = "0.4.32"
+rand = "0.10.1"
 regex = "1.10.4"
-serde = {version = "1.0.197", features = ["derive"]}
-serde_json = "1.0.114"
-simple-error = "0.3.0"
-chrono = "0.4.35"
-async-trait = "0.1.80"
-clap = { version = "4.5.4", features = ["cargo"] }
+serde = {version = "1", features = ["derive"]}
+serde_json = "1"
+simple-error = "0.3.2"
+chrono = "0.4.45"
+async-trait = "0.1.89"
+clap = { version = "4.6.1", features = ["cargo"] }
 
 [dev-dependencies]
 tokio-test = "0.4.4"
