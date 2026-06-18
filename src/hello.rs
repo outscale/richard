@@ -24,7 +24,7 @@ impl Module for Hello {
             return None;
         }
         let quote = {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             match ALL_QUOTES.iter().choose(&mut rng) {
                 Some((author, quote)) => format!("{} — {}", quote, author),
                 None => return None,

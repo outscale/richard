@@ -151,7 +151,7 @@ impl WebexAgent {
         match builder.send().await {
             Ok(resp) => trace!(
                 "status: {}, content: {:#?}",
-                resp.status().to_string(),
+                resp.status(),
                 resp.text().await
             ),
             Err(err) => error!("{}", err),

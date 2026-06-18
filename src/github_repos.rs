@@ -5,6 +5,7 @@ use crate::utils::request_agent;
 use async_trait::async_trait;
 use chrono::prelude::{DateTime, Utc};
 use log::{debug, error, info, trace, warn};
+use reqwest::Response;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;
@@ -238,7 +239,7 @@ impl GithubRepo {
             let Ok(url) = reqwest::Url::parse_with_params(&url, &params) else {
                 break;
             };
-            let resp = match agent
+            let resp: Response = match agent
                 .get(url.as_str())
                 .header("Authorization", &format!("token {}", self.github_token))
                 .header("User-Agent", "richard/0.0.0")
