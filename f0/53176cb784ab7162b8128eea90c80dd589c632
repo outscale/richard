@@ -1,0 +1,26 @@
+.github/workflows/docker.yml
+  s_2267b86fb3714e::t_5100e47aee08a2 2-14,16-22,24-26,28-37,39-45,47-48,50-51,53-54,56-59
+Makefile
+  s_2267b86fb3714e::t_b315076b7695af 12,16
+.dockerignore
+  s_2267b86fb3714e::t_a4e1f028983ded 1-18,20-25,27-29
+Dockerfile
+  s_2267b86fb3714e::t_23e084ac708e1a 1
+  s_2267b86fb3714e::t_6755ec09c42492 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "f053176cb784ab7162b8128eea90c80dd589c632",
+  "prompts": {},
+  "sessions": {
+    "s_2267b86fb3714e": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019eda14-5672-7000-8411-48d4728b8663",
+        "model": "minimax-m3"
+      },
+      "human_author": "Ch.-David Blot <charles-david.blot@outscale.com>"
+    }
+  }
+}
