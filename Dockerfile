@@ -6,4 +6,5 @@ RUN cargo build --release --locked
 
 FROM debian:trixie-slim
 COPY --from=builder /src/target/release/richard /usr/local/bin/richard
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/usr/local/bin/richard"]
