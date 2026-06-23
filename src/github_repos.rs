@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
 use std::time::SystemTime;
+use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 60;
@@ -36,16 +37,17 @@ impl Module for GithubRepos {
         params()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
-        for (_repo_full_name, repo) in self.repos.iter_mut() {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
+        let mut repos = self.repos.write().await;
+        for (_repo_full_name, repo) in repos.iter_mut() {
             repo.run().await;
         }
         None
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(3600)]
     }
 
@@ -53,46 +55,44 @@ impl Module for GithubRepos {
         ModuleCapabilities::default()
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
 type RepoFullName = String;
-
-#[derive(Clone)]
 pub struct GithubRepos {
-    repos: HashMap<RepoFullName, GithubRepo>,
+    repos: RwLock<HashMap<RepoFullName, GithubRepo>>,
 }
 
 impl GithubRepos {
     pub fn new() -> Result<Self, VarError> {
-        let mut github_repos = GithubRepos {
-            repos: HashMap::new(),
-        };
+        let mut repos = HashMap::new();
         for i in 0..100 {
             let var_fullname = env::var(format!("GITHUB_REPOS_{}_FULLNAME", i));
             match var_fullname {
                 Ok(fullname) => {
                     info!("github repo configured: {}", fullname);
                     let new_repo = GithubRepo::new(fullname.as_str())?;
-                    github_repos.repos.insert(fullname, new_repo);
+                    repos.insert(fullname, new_repo);
                 }
                 _ => break,
             }
         }
-        if github_repos.repos.is_empty() {
+        if repos.is_empty() {
             warn!("github_repos module enabled bot not configuration provided");
         }
-        Ok(github_repos)
+        Ok(GithubRepos {
+            repos: RwLock::new(repos),
+        })
     }
 }
 

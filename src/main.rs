@@ -12,7 +12,6 @@ mod github_orgs;
 mod github_repos;
 mod hello;
 mod help;
-mod ollama;
 mod outscale_api_versions;
 mod ping;
 mod roll;
@@ -24,7 +23,7 @@ mod webpages;
 #[tokio::main]
 pub async fn main() {
     env_logger::init();
-    let mut bot = Bot::new().await;
+    let bot = Bot::new();
 
     let matches = command!()
         .arg(

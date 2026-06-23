@@ -10,6 +10,7 @@ use serde::Serialize;
 use std::env;
 use std::env::VarError;
 use std::error::Error;
+use tokio::sync::Mutex;
 use tokio::time::Duration;
 
 #[async_trait]
@@ -25,9 +26,9 @@ impl Module for Webex {
         ]
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
         None
     }
 
@@ -39,21 +40,21 @@ impl Module for Webex {
         }
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(10)]
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, messages: &[Message]) {
+    async fn send_message(&self, messages: &[Message]) {
         for message in messages {
             self.agent.say(message).await;
         }
     }
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         let mut unread_messages = Vec::new();
         let messages = self.agent.unread_messages().await.ok()?;
         for message in messages.items {
@@ -68,12 +69,11 @@ impl Module for Webex {
         Some(unread_messages)
     }
 
-    async fn resp_message(&mut self, parent: MessageCtx, message: Message) {
+    async fn resp_message(&self, parent: MessageCtx, message: Message) {
         self.agent.respond(&message, &parent.id).await;
     }
 }
 
-#[derive(Clone)]
 pub struct Webex {
     agent: WebexAgent,
 }
@@ -86,11 +86,11 @@ impl Webex {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct WebexAgent {
     auth_header: String,
     room_id: String,
-    last_unread_message_date: Option<String>,
+    last_unread_message_date: Mutex<Option<String>>,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -109,7 +109,7 @@ impl WebexAgent {
         Ok(WebexAgent {
             auth_header: format!("Bearer {}", webex_token),
             room_id,
-            last_unread_message_date: None,
+            last_unread_message_date: Mutex::new(None),
         })
     }
 
@@ -179,7 +179,7 @@ impl WebexAgent {
         }
     }
 
-    async fn unread_messages(&mut self) -> Result<WebexMessages, Box<dyn Error + Send + Sync>> {
+    async fn unread_messages(&self) -> Result<WebexMessages, Box<dyn Error + Send + Sync>> {
         let url = format!(
             "https://webexapis.com/v1/messages?roomId={}&mentionedPeople=me",
             self.room_id
@@ -191,20 +191,21 @@ impl WebexAgent {
         // Sort messages by date
         res.items.sort_by(|a, b| a.created.cmp(&b.created));
 
+        let mut lock = self.last_unread_message_date.lock().await;
         // Filter seen messages
-        if let Some(last) = &self.last_unread_message_date {
-            res.items.retain(|m| m.created > *last);
+        if let Some(ref last) = *lock {
+            res.items.retain(|m| m.created.as_str() > last.as_str());
         }
 
         // Update last seen date
         if let Some(m) = res.items.iter().last() {
             let date = Some(m.created.clone());
-            if self.last_unread_message_date.is_none() {
+            if lock.is_none() {
                 res.items.clear();
             }
-            self.last_unread_message_date = date;
-        } else if self.last_unread_message_date.is_none() {
-            self.last_unread_message_date = Some(String::from("0"));
+            *lock = date;
+        } else if lock.is_none() {
+            *lock = Some(String::from("0"));
         }
 
         Ok(res)

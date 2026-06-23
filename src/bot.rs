@@ -4,7 +4,6 @@ use crate::github_orgs::GithubOrgs;
 use crate::github_repos::GithubRepos;
 use crate::hello::Hello;
 use crate::help::Help;
-use crate::ollama::Ollama;
 use crate::outscale_api_versions::OutscaleApiVersions;
 use crate::ping::Ping;
 use crate::roll::Roll;
@@ -12,14 +11,13 @@ use crate::triggers::Triggers;
 use crate::webex::Webex;
 use crate::webpages::Webpages;
 use async_trait::async_trait;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::channel;
-use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::sleep;
 
@@ -53,17 +51,18 @@ pub struct MessageCtx {
 pub trait Module {
     fn name(&self) -> &'static str;
     fn params(&self) -> Vec<ModuleParam>;
-    async fn module_offering(&mut self, modules: &[ModuleData]);
+    fn variation_durations(&self) -> Vec<Duration>;
     fn capabilities(&self) -> ModuleCapabilities;
-    async fn run(&mut self, variation: usize) -> Option<Vec<Message>>;
-    async fn variation_durations(&mut self) -> Vec<Duration>;
-    async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>>;
-    async fn send_message(&mut self, messages: &[Message]);
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>>;
-    async fn resp_message(&mut self, parent: MessageCtx, message: Message);
+
+    async fn module_offering(&self, modules: &[ModuleData]);
+    async fn run(&self, variation: usize) -> Option<Vec<Message>>;
+    async fn trigger(&self, message: &str) -> Option<Vec<MessageResponse>>;
+    async fn send_message(&self, messages: &[Message]);
+    async fn read_message(&self) -> Option<Vec<MessageCtx>>;
+    async fn resp_message(&self, parent: MessageCtx, message: Message);
 }
 
-pub type SharedModule = Arc<RwLock<Box<dyn Module + Send + Sync>>>;
+pub type SharedModule = Arc<Box<dyn Module + Send + Sync>>;
 
 #[derive(Clone, Default)]
 pub struct ModuleCapabilities {
@@ -78,19 +77,19 @@ pub struct ModuleCapabilities {
 #[derive(Clone)]
 pub struct ModuleData {
     pub module: SharedModule,
-    pub name: String,
+    pub name: &'static str,
     pub variation_durations: Vec<Duration>,
     pub params: Vec<ModuleParam>,
     pub capabilities: ModuleCapabilities,
 }
 
 impl ModuleData {
-    async fn new<M: Module + Send + Sync + 'static>(mut module: M) -> ModuleData {
-        let name = String::from(module.name());
-        let variation_durations = module.variation_durations().await;
+    fn new<M: Module + Send + Sync + 'static>(module: M) -> ModuleData {
+        let name = module.name();
+        let variation_durations = module.variation_durations();
         let params = module.params();
         let capabilities = module.capabilities();
-        let module: SharedModule = Arc::new(RwLock::new(Box::new(module)));
+        let module: SharedModule = Arc::new(Box::new(module));
         ModuleData {
             module,
             name,
@@ -107,49 +106,45 @@ pub struct Bot {
 }
 
 impl Bot {
-    pub async fn new() -> Bot {
-        let mut bot = Bot::default();
-        bot.register("webex", Webex::new()).await;
-        bot.register("ping", Ping::new()).await;
-        bot.register("help", Help::new()).await;
-        bot.register("down_detectors", DownDetectors::new()).await;
-        bot.register("github_orgs", GithubOrgs::new()).await;
-        bot.register("github_repos", GithubRepos::new()).await;
-        bot.register("triggers", Triggers::new()).await;
-        bot.register("hello", Hello::new()).await;
-        bot.register("ollama", Ollama::new()).await;
-        bot.register("feeds", Feeds::new()).await;
-        bot.register("roll", Roll::new()).await;
-        bot.register("webpages", Webpages::new()).await;
-        bot.register("outscale_api_versions", OutscaleApiVersions::new())
-            .await;
-        bot
+    pub fn new() -> Self {
+        Bot::default()
+            .register("webex", Webex::new())
+            .register("ping", Ping::new())
+            .register("help", Help::new())
+            .register("down_detectors", DownDetectors::new())
+            .register("github_orgs", GithubOrgs::new())
+            .register("github_repos", GithubRepos::new())
+            .register("triggers", Triggers::new())
+            .register("hello", Hello::new())
+            .register("feeds", Feeds::new())
+            .register("roll", Roll::new())
+            .register("webpages", Webpages::new())
+            .register("outscale_api_versions", OutscaleApiVersions::new())
     }
 
-    async fn register<M: Module + Send + Sync + 'static>(
-        &mut self,
+    fn register<M: Module + Send + Sync + 'static>(
+        mut self,
         module_name: &str,
         module: Result<M, VarError>,
-    ) {
+    ) -> Self {
         if !Bot::is_module_enabled(module_name) {
             info!("module {} is not enabled", module_name);
-            return;
+            return self;
         }
         info!("module {} is enabled", module_name);
         let module = match module {
             Ok(module) => module,
             Err(err) => {
-                error!("cannot init module {}: {}", module_name, err);
-                return;
+                panic!("cannot init module {}: {}", module_name, err);
             }
         };
-        self.modules.push(ModuleData::new(module).await);
+        self.modules.push(ModuleData::new(module));
+        self
     }
 
     async fn send_modules(&self) {
         for module in self.modules.iter() {
-            let mut module_rw = module.module.write().await;
-            module_rw.module_offering(&self.modules).await;
+            module.module.module_offering(&self.modules).await;
         }
     }
 
@@ -187,7 +182,7 @@ impl Bot {
         output
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run(mut self) {
         if self.modules.is_empty() {
             error!("no module enabled");
             return;
@@ -203,15 +198,11 @@ impl Bot {
                 tasks.spawn(tokio::spawn(async move {
                     let module = module.clone();
                     loop {
-                        debug!("{}: wait for module write lock", module.name);
-                        let mut module_rw = module.module.write().await;
-                        debug!("{}: run({})", module.name, variation);
-                        if let Some(messages) = module_rw.run(variation).await {
+                        if let Some(messages) = module.module.run(variation).await {
                             if let Err(err) = mailbox_tx.send(messages).await {
                                 error!("{}", err);
                             }
                         }
-                        drop(module_rw);
                         sleep(duration).await;
                     }
                 }));
@@ -225,8 +216,7 @@ impl Bot {
                     Ok(messages) => {
                         for module in modules.iter() {
                             if module.capabilities.send_message {
-                                let mut module_rw = module.module.write().await;
-                                module_rw.send_message(&messages).await;
+                                module.module.send_message(&messages).await;
                             }
                         }
                     }
