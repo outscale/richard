@@ -6,6 +6,7 @@ use std::cmp::min;
 use std::env::{self, VarError};
 use std::error::Error;
 use std::fmt::Display;
+use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 use crate::bot::{
@@ -14,10 +15,8 @@ use crate::bot::{
 use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
-
-#[derive(Clone)]
 pub struct DownDetectors {
-    watch_list: Vec<DownDetector>,
+    watch_list: RwLock<Vec<DownDetector>>,
 }
 
 #[async_trait]
@@ -41,9 +40,20 @@ impl Module for DownDetectors {
         ]
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    fn variation_durations(&self) -> Vec<Duration> {
+        vec![Duration::from_secs(2), Duration::from_secs(2)]
+    }
 
-    async fn run(&mut self, variation: usize) -> Option<Vec<Message>> {
+    fn capabilities(&self) -> ModuleCapabilities {
+        ModuleCapabilities {
+            triggers: Some(vec!["/status".to_string()]),
+            ..ModuleCapabilities::default()
+        }
+    }
+
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
+
+    async fn run(&self, variation: usize) -> Option<Vec<Message>> {
         match variation {
             0 => {
                 self.run_error_rate().await;
@@ -57,21 +67,11 @@ impl Module for DownDetectors {
         }
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
-        vec![Duration::from_secs(2), Duration::from_secs(2)]
-    }
-
-    fn capabilities(&self) -> ModuleCapabilities {
-        ModuleCapabilities {
-            triggers: Some(vec!["/status".to_string()]),
-            ..ModuleCapabilities::default()
-        }
-    }
-
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /status");
         let mut response = String::new();
-        for e in &self.watch_list {
+        let watch_list = self.watch_list.read().await;
+        for e in watch_list.iter() {
             let s = format!(
                 "{}: alive={}, error_rate={:.2}\n",
                 e.name, e.alive, e.error_rate
@@ -81,20 +81,18 @@ impl Module for DownDetectors {
         Some(vec![response])
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl DownDetectors {
     pub fn new() -> Result<DownDetectors, VarError> {
-        let mut down_detectors = DownDetectors {
-            watch_list: Vec::new(),
-        };
+        let mut watch_list = Vec::new();
         for i in 0..100 {
             let name = env::var(format!("DOWN_DETECTORS_{}_NAME", i));
             let url = env::var(format!("DOWN_DETECTORS_{}_URL", i));
@@ -102,19 +100,22 @@ impl DownDetectors {
                 (Ok(name), Ok(url)) => {
                     info!("down detector on {} configured", name);
                     let new = DownDetector::new(name, url);
-                    down_detectors.watch_list.push(new);
+                    watch_list.push(new);
                 }
                 _ => break,
             }
         }
-        if down_detectors.watch_list.is_empty() {
+        if watch_list.is_empty() {
             warn!("down detectors module enabled bot not configuration provided");
         }
-        Ok(down_detectors)
+        Ok(DownDetectors {
+            watch_list: RwLock::new(watch_list),
+        })
     }
 
-    async fn run_error_rate(&mut self) {
-        for down_detector in self.watch_list.iter_mut() {
+    async fn run_error_rate(&self) {
+        let mut watch_list = self.watch_list.write().await;
+        for down_detector in watch_list.iter_mut() {
             if let Some(error_rate) = down_detector.update_error_rate().await {
                 if error_rate > HIGH_ERROR_RATE {
                     warn!(
@@ -127,9 +128,10 @@ impl DownDetectors {
         }
     }
 
-    async fn run_alive(&mut self) -> Option<Vec<Message>> {
+    async fn run_alive(&self) -> Option<Vec<Message>> {
         let mut messages = Vec::<Message>::new();
-        for down_detector in self.watch_list.iter_mut() {
+        let mut watch_list = self.watch_list.write().await;
+        for down_detector in watch_list.iter_mut() {
             if let Some(response) = down_detector.alive().await {
                 messages.push(response);
             }

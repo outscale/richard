@@ -5,12 +5,17 @@ use crate::bot::{
 use async_trait::async_trait;
 use log::trace;
 use std::env::VarError;
-use tokio::time::Duration;
+use tokio::{sync::RwLock, time::Duration};
 
 #[derive(Clone, Default)]
-pub struct Triggers {
+pub struct InnerTriggers {
     trigger_modules: Vec<ModuleData>,
     chat_modules: Vec<ModuleData>,
+}
+
+#[derive(Default)]
+pub struct Triggers {
+    inner: RwLock<InnerTriggers>,
 }
 
 #[async_trait]
@@ -23,8 +28,8 @@ impl Module for Triggers {
         Vec::new()
     }
 
-    async fn module_offering(&mut self, modules: &[ModuleData]) {
-        self.trigger_modules = modules
+    async fn module_offering(&self, modules: &[ModuleData]) {
+        let trigger_modules = modules
             .iter()
             .filter(|module| module.name != "triggers")
             .filter(|module| {
@@ -34,55 +39,63 @@ impl Module for Triggers {
             })
             .cloned()
             .collect();
-        self.chat_modules = modules
+        let chat_modules = modules
             .iter()
             .filter(|module| module.name != "triggers")
             .filter(|module| module.capabilities.read_message || module.capabilities.resp_message)
             .cloned()
             .collect();
+
+        let inner = InnerTriggers {
+            trigger_modules,
+            chat_modules,
+        };
+
+        let mut lock = self.inner.write().await;
+        *lock = inner;
     }
 
     fn capabilities(&self) -> ModuleCapabilities {
         ModuleCapabilities::default()
     }
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
-        let chat_modules = self.chat_modules.clone();
-        for chat_module in chat_modules {
-            self.run_chat_module(chat_module.module.clone()).await;
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
+        let lock = self.inner.read().await;
+        for chat_module in lock.chat_modules.iter() {
+            lock.run_chat_module(chat_module.module.clone()).await;
         }
         None
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(10)]
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl Triggers {
     pub fn new() -> Result<Self, VarError> {
         Ok(Triggers::default())
     }
+}
 
-    async fn run_chat_module(&mut self, chat_module: SharedModule) {
-        let mut chat_module_rw = chat_module.write().await;
-        let new_messages = match chat_module_rw.read_message().await {
-            Some(messages) => messages,
-            None => return,
+impl InnerTriggers {
+    async fn run_chat_module(&self, chat_module: SharedModule) {
+        let new_messages = match chat_module.read_message().await {
+            Some(messages) if !messages.is_empty() => messages,
+            _ => return,
         };
-        drop(chat_module_rw);
 
         for message in new_messages {
             trace!("getting new message '{}'", message.content);
@@ -91,14 +104,12 @@ impl Triggers {
             for trigger_module in self.trigger_modules.iter() {
                 if trigger_module.capabilities.catch_all {
                     trace!("module {} catch all message", trigger_module.name);
-                    let mut trigger_module_rw = trigger_module.module.write().await;
                     if let Some(mut trigger_responses) =
-                        trigger_module_rw.trigger(&message.content).await
+                        trigger_module.module.trigger(&message.content).await
                     {
                         responses.append(&mut trigger_responses);
                     }
-                }
-                if let Some(triggers) = trigger_module.capabilities.triggers.as_ref() {
+                } else if let Some(triggers) = trigger_module.capabilities.triggers.as_ref() {
                     for trigger in triggers.iter() {
                         if message.content.contains(trigger) {
                             trace!(
@@ -107,9 +118,8 @@ impl Triggers {
                                 trigger
                             );
                             triggered = true;
-                            let mut trigger_module_rw = trigger_module.module.write().await;
                             if let Some(mut trigger_responses) =
-                                trigger_module_rw.trigger(&message.content).await
+                                trigger_module.module.trigger(&message.content).await
                             {
                                 responses.append(&mut trigger_responses);
                             }
@@ -125,18 +135,16 @@ impl Triggers {
                             "module {} will catch non triggered message",
                             trigger_module.name
                         );
-                        let mut trigger_module_rw = trigger_module.module.write().await;
                         if let Some(mut trigger_responses) =
-                            trigger_module_rw.trigger(&message.content).await
+                            trigger_module.module.trigger(&message.content).await
                         {
                             responses.append(&mut trigger_responses);
                         }
                     }
                 }
             }
-            let mut chat_module_rw = chat_module.write().await;
             for response in responses {
-                chat_module_rw.resp_message(message.clone(), response).await
+                chat_module.resp_message(message.clone(), response).await
             }
         }
     }

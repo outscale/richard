@@ -4,7 +4,7 @@ use crate::bot::{
 use async_trait::async_trait;
 use rand::prelude::IteratorRandom;
 use std::env::VarError;
-use tokio::time::Duration;
+use tokio::{sync::Mutex, time::Duration};
 
 #[async_trait]
 impl Module for Hello {
@@ -16,13 +16,16 @@ impl Module for Hello {
         Vec::new()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
-        if !self.has_skipped_first_time {
-            self.has_skipped_first_time = true;
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
+        let mut lock = self.has_skipped_first_time.lock().await; //Please kill me
+        if !*lock {
+            *lock = true;
             return None;
         }
+        drop(lock);
+
         let quote = {
             let mut rng = rand::rng();
             match ALL_QUOTES.iter().choose(&mut rng) {
@@ -37,33 +40,32 @@ impl Module for Hello {
         ModuleCapabilities::default()
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         let seven_day_s = 7 * 24 * 60 * 60;
         vec![Duration::from_secs(seven_day_s)]
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
-#[derive(Clone)]
 pub struct Hello {
-    has_skipped_first_time: bool,
+    has_skipped_first_time: Mutex<bool>,
 }
 
 impl Hello {
     pub fn new() -> Result<Self, VarError> {
         Ok(Hello {
-            has_skipped_first_time: false,
+            has_skipped_first_time: Mutex::new(false),
         })
     }
 }
