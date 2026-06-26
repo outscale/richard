@@ -3,8 +3,11 @@ use crate::bot::{
 };
 use async_trait::async_trait;
 use rand::prelude::IteratorRandom;
-use std::env::VarError;
-use tokio::{sync::Mutex, time::Duration};
+use std::{
+    env::VarError,
+    sync::atomic::{AtomicBool, Ordering},
+};
+use tokio::time::Duration;
 
 #[async_trait]
 impl Module for Hello {
@@ -19,12 +22,9 @@ impl Module for Hello {
     async fn module_offering(&self, _modules: &[ModuleData]) {}
 
     async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
-        let mut lock = self.has_skipped_first_time.lock().await; //Please kill me
-        if !*lock {
-            *lock = true;
+        if !self.has_skipped_first_time.swap(true, Ordering::Relaxed) {
             return None;
         }
-        drop(lock);
 
         let quote = {
             let mut rng = rand::rng();
@@ -59,13 +59,13 @@ impl Module for Hello {
 }
 
 pub struct Hello {
-    has_skipped_first_time: Mutex<bool>,
+    has_skipped_first_time: AtomicBool,
 }
 
 impl Hello {
     pub fn new() -> Result<Self, VarError> {
         Ok(Hello {
-            has_skipped_first_time: Mutex::new(false),
+            has_skipped_first_time: AtomicBool::new(false),
         })
     }
 }

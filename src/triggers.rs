@@ -60,9 +60,15 @@ impl Module for Triggers {
     }
 
     async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
-        let lock = self.inner.read().await;
-        for chat_module in lock.chat_modules.iter() {
-            lock.run_chat_module(chat_module.module.clone()).await;
+        let (trigger_modules, chat_modules): (Vec<ModuleData>, Vec<SharedModule>) = {
+            let lock = self.inner.read().await;
+            (
+                lock.trigger_modules.clone(),
+                lock.chat_modules.iter().map(|m| m.module.clone()).collect(),
+            )
+        };
+        for chat_module in chat_modules {
+            run_chat_module(&trigger_modules, chat_module).await;
         }
         None
     }
@@ -90,51 +96,33 @@ impl Triggers {
     }
 }
 
-impl InnerTriggers {
-    async fn run_chat_module(&self, chat_module: SharedModule) {
-        let new_messages = match chat_module.read_message().await {
-            Some(messages) if !messages.is_empty() => messages,
-            _ => return,
-        };
+async fn run_chat_module(trigger_modules: &[ModuleData], chat_module: SharedModule) {
+    let new_messages = match chat_module.read_message().await {
+        Some(messages) if !messages.is_empty() => messages,
+        _ => return,
+    };
 
-        for message in new_messages {
-            trace!("getting new message '{}'", message.content);
-            let mut responses = Vec::<MessageResponse>::new();
-            let mut triggered = false;
-            for trigger_module in self.trigger_modules.iter() {
-                if trigger_module.capabilities.catch_all {
-                    trace!("module {} catch all message", trigger_module.name);
-                    if let Some(mut trigger_responses) =
-                        trigger_module.module.trigger(&message.content).await
-                    {
-                        responses.append(&mut trigger_responses);
-                    }
-                } else if let Some(triggers) = trigger_module.capabilities.triggers.as_ref() {
-                    for trigger in triggers.iter() {
-                        if message.content.contains(trigger) {
-                            trace!(
-                                "module {} is triggered because message contains '{}'",
-                                trigger_module.name,
-                                trigger
-                            );
-                            triggered = true;
-                            if let Some(mut trigger_responses) =
-                                trigger_module.module.trigger(&message.content).await
-                            {
-                                responses.append(&mut trigger_responses);
-                            }
-                        }
-                    }
+    for message in new_messages {
+        trace!("getting new message '{}'", message.content);
+        let mut responses = Vec::<MessageResponse>::new();
+        let mut triggered = false;
+        for trigger_module in trigger_modules.iter() {
+            if trigger_module.capabilities.catch_all {
+                trace!("module {} catch all message", trigger_module.name);
+                if let Some(mut trigger_responses) =
+                    trigger_module.module.trigger(&message.content).await
+                {
+                    responses.append(&mut trigger_responses);
                 }
-            }
-            if !triggered {
-                trace!("no module has been triggered by message");
-                for trigger_module in self.trigger_modules.iter() {
-                    if trigger_module.capabilities.catch_non_triggered {
+            } else if let Some(triggers) = trigger_module.capabilities.triggers.as_ref() {
+                for trigger in triggers.iter() {
+                    if message.content.contains(trigger) {
                         trace!(
-                            "module {} will catch non triggered message",
-                            trigger_module.name
+                            "module {} is triggered because message contains '{}'",
+                            trigger_module.name,
+                            trigger
                         );
+                        triggered = true;
                         if let Some(mut trigger_responses) =
                             trigger_module.module.trigger(&message.content).await
                         {
@@ -143,9 +131,25 @@ impl InnerTriggers {
                     }
                 }
             }
-            for response in responses {
-                chat_module.resp_message(message.clone(), response).await
+        }
+        if !triggered {
+            trace!("no module has been triggered by message");
+            for trigger_module in trigger_modules.iter() {
+                if trigger_module.capabilities.catch_non_triggered {
+                    trace!(
+                        "module {} will catch non triggered message",
+                        trigger_module.name
+                    );
+                    if let Some(mut trigger_responses) =
+                        trigger_module.module.trigger(&message.content).await
+                    {
+                        responses.append(&mut trigger_responses);
+                    }
+                }
             }
+        }
+        for response in responses {
+            chat_module.resp_message(message.clone(), response).await
         }
     }
 }

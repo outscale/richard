@@ -41,7 +41,7 @@ impl Module for Webex {
     }
 
     fn variation_durations(&self) -> Vec<Duration> {
-        vec![Duration::from_secs(10)]
+        vec![Duration::from_secs(2)]
     }
 
     async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {

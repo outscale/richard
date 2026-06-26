@@ -190,7 +190,6 @@ impl GithubRepo {
         let resp = match agent
             .get(&url)
             .header("Authorization", &format!("token {}", self.github_token))
-            .header("User-Agent", "richard/0.0.0")
             .header("Accept", "application/vnd.github+json")
             .send()
             .await
@@ -242,7 +241,6 @@ impl GithubRepo {
             let resp: Response = match agent
                 .get(url.as_str())
                 .header("Authorization", &format!("token {}", self.github_token))
-                .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
                 .form(&params)
                 .send()
