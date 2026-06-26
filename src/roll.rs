@@ -7,7 +7,6 @@ use rand::RngExt;
 use std::env::VarError;
 use tokio::time::Duration;
 
-#[derive(Clone)]
 pub struct Roll {}
 
 #[async_trait]
@@ -20,13 +19,13 @@ impl Module for Roll {
         Vec::new()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
         None
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(9999)]
     }
 
@@ -37,18 +36,18 @@ impl Module for Roll {
         }
     }
 
-    async fn trigger(&mut self, message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, message: &str) -> Option<Vec<MessageResponse>> {
         let response = Roll::gen(&message.into()).unwrap_or(Roll::help().into());
         Some(vec![response])
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl Roll {

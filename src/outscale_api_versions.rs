@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::env::{self, VarError};
 use std::error::Error;
+use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 use crate::bot::{
@@ -11,7 +12,7 @@ use crate::bot::{
 };
 use async_trait::async_trait;
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct OutscaleApiVersions {
     endpoints: Vec<Endpoint>,
 }
@@ -37,13 +38,12 @@ impl Module for OutscaleApiVersions {
         ]
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
         self.run_version().await
     }
-
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(30)]
     }
 
@@ -54,16 +54,12 @@ impl Module for OutscaleApiVersions {
         }
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /oapi-versions");
         let mut response = String::new();
         for endpoint in &self.endpoints {
-            let mut versions = endpoint
-                .versions
-                .keys()
-                .cloned()
-                .collect::<Vec<String>>()
-                .join(", ");
+            let lock = endpoint.versions.read().await;
+            let mut versions = lock.keys().cloned().collect::<Vec<String>>().join(", ");
             if versions.is_empty() {
                 versions = "unknown".to_string();
             }
@@ -73,13 +69,13 @@ impl Module for OutscaleApiVersions {
         Some(vec![response])
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl OutscaleApiVersions {
@@ -103,9 +99,9 @@ impl OutscaleApiVersions {
         Ok(endpoints)
     }
 
-    pub async fn run_version(&mut self) -> Option<Vec<Message>> {
+    pub async fn run_version(&self) -> Option<Vec<Message>> {
         let mut messages = Vec::<Message>::new();
-        for endpoint in self.endpoints.iter_mut() {
+        for endpoint in self.endpoints.iter() {
             trace!("getting {} endpoint's version", endpoint.name);
             if let Err(err) = endpoint.update_version().await {
                 error!(
@@ -115,7 +111,8 @@ impl OutscaleApiVersions {
             };
             let mut alive_versions = Vec::<String>::new();
             let mut dead_versions = Vec::<String>::new();
-            for (version_name, cnt) in endpoint.versions.iter_mut() {
+            let mut lock = endpoint.versions.write().await;
+            for (version_name, cnt) in lock.iter_mut() {
                 *cnt = cnt.saturating_sub(1);
                 if *cnt == 0 {
                     dead_versions.push(version_name.clone());
@@ -124,7 +121,7 @@ impl OutscaleApiVersions {
                 }
             }
             for v in &dead_versions {
-                endpoint.versions.remove(v);
+                lock.remove(v);
             }
             if !dead_versions.is_empty() {
                 messages.push(format!(
@@ -139,12 +136,11 @@ impl OutscaleApiVersions {
     }
 }
 
-#[derive(Clone)]
 struct Endpoint {
     name: String,
     endpoint: String,
     // Name -> Counter
-    versions: HashMap<String, u8>,
+    versions: RwLock<HashMap<String, u8>>,
 }
 
 impl Endpoint {
@@ -152,13 +148,14 @@ impl Endpoint {
         Endpoint {
             name,
             endpoint,
-            versions: HashMap::new(),
+            versions: RwLock::new(HashMap::new()),
         }
     }
 
-    async fn update_version(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn update_version(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let version = self.get_version().await?;
-        self.versions.insert(version, 255);
+        let mut lock = self.versions.write().await;
+        lock.insert(version, 255);
         Ok(())
     }
 

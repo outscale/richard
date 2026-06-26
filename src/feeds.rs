@@ -9,11 +9,11 @@ use log::{error, info, warn};
 use std::cmp::Ordering;
 use std::env::{self, VarError};
 use std::error::Error;
+use tokio::sync::RwLock;
 use tokio::time::Duration;
-
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct Feeds {
-    feeds: Vec<Feed>,
+    feeds: RwLock<Vec<Feed>>,
 }
 
 #[async_trait]
@@ -29,11 +29,12 @@ impl Module for Feeds {
         ]
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
         let mut messages: Vec<String> = Vec::new();
-        for feed in &mut self.feeds {
+        let mut feeds = self.feeds.write().await;
+        for feed in feeds.iter_mut() {
             if feed.update().await {
                 if let Some(announce) = feed.announce() {
                     messages.push(announce);
@@ -49,7 +50,7 @@ impl Module for Feeds {
         Some(messages)
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(3600)]
     }
 
@@ -57,37 +58,39 @@ impl Module for Feeds {
         ModuleCapabilities::default()
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
 impl Feeds {
     pub fn new() -> Result<Feeds, VarError> {
-        let mut feeds = Feeds::default();
+        let mut feeds = Vec::new();
         for i in 0..100 {
             let name = env::var(format!("FEED_{}_NAME", i));
             let url = env::var(format!("FEED_{}_URL", i));
             match (name, url) {
                 (Ok(name), Ok(url)) => {
                     info!("feed configured: {} ({}), ", name, url);
-                    feeds.feeds.push(Feed::new(name, url));
+                    feeds.push(Feed::new(name, url));
                 }
                 _ => break,
             }
         }
-        if feeds.feeds.is_empty() {
+        if feeds.is_empty() {
             warn!("feeds module enabled bot not configuration provided");
         }
-        Ok(feeds)
+        Ok(Feeds {
+            feeds: RwLock::new(feeds),
+        })
     }
 }
 

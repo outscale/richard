@@ -54,7 +54,6 @@ Richard has a modular design — each feature must be explicitly enabled via con
 | `github_orgs`           | Watches for new releases across all repos in one or more GitHub orgs    |
 | `github_repos`          | Watches specific GitHub repos for new releases                          |
 | `hello`                 | Sends random quotes at regular time intervals                           |
-| `ollama`                | Integrates with [Ollama API](https://ollama.ai/) as a default responder |
 | `feeds`                 | Monitors RSS feeds and alerts on new items                              |
 | `roll`                  | Responds to `/roll` dice commands (e.g. `/roll 1d20`)                   |
 | `webpages`              | Monitors webpages and alerts when content changes                       |

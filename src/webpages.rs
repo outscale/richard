@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use log::{error, info, warn};
 use std::env;
 use std::env::VarError;
+use tokio::sync::Mutex;
 use tokio::time::Duration;
 
 #[async_trait]
@@ -33,11 +34,11 @@ impl Module for Webpages {
         ModuleCapabilities::default()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
         let mut messages = Vec::new();
-        for page in self.pages.iter_mut() {
+        for page in self.pages.iter() {
             if page.changed().await {
                 let message = format!("[{}]({}) has changed", page.name, page.url);
                 messages.push(message);
@@ -49,24 +50,24 @@ impl Module for Webpages {
         Some(messages)
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(60)]
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct Webpages {
     pages: Vec<Webpage>,
 }
@@ -93,11 +94,10 @@ impl Webpages {
     }
 }
 
-#[derive(Clone)]
 struct Webpage {
     name: String,
     url: String,
-    content: Option<String>,
+    content: Mutex<Option<String>>,
 }
 
 impl Webpage {
@@ -105,11 +105,11 @@ impl Webpage {
         Webpage {
             name: name.into(),
             url: url.into(),
-            content: None,
+            content: Mutex::new(None),
         }
     }
 
-    async fn changed(&mut self) -> bool {
+    async fn changed(&self) -> bool {
         let agent = match request_agent() {
             Ok(agent) => agent,
             Err(err) => {
@@ -132,13 +132,14 @@ impl Webpage {
             }
         };
 
+        let mut lock = self.content.lock().await;
         let mut changed = false;
-        if let Some(content) = &self.content {
+        if let Some(ref content) = *lock {
             if content.len() != body.len() || *content != body {
                 changed = true;
             }
         }
-        self.content = Some(body);
+        *lock = Some(body);
         changed
     }
 }

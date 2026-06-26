@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use log::trace;
 use std::collections::HashSet;
 use std::env::VarError;
+use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 #[async_trait]
@@ -17,21 +18,22 @@ impl Module for Help {
         Vec::new()
     }
 
-    async fn module_offering(&mut self, modules: &[ModuleData]) {
+    async fn module_offering(&self, modules: &[ModuleData]) {
+        let mut lock = self.commands.write().await;
         for module in modules {
             if let Some(triggers) = module.capabilities.triggers.as_ref() {
                 for trigger in triggers {
-                    self.commands.insert(trigger.clone());
+                    lock.insert(trigger.clone());
                 }
             }
         }
     }
 
-    async fn run(&mut self, _variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, _variation: usize) -> Option<Vec<Message>> {
         None
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         vec![Duration::from_secs(100)]
     }
 
@@ -42,38 +44,37 @@ impl Module for Help {
         }
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /help");
-        let command_list = self
-            .commands
-            .iter()
-            .map(|command| format!("- {}\n", command))
-            .fold(String::new(), |mut acc, command| {
+        let lock = self.commands.read().await;
+        let command_list = lock.iter().map(|command| format!("- {}\n", command)).fold(
+            String::new(),
+            |mut acc, command| {
                 acc.push_str(command.as_str());
                 acc
-            });
+            },
+        );
         let response = format!("Available commands are:\n{}", command_list);
         Some(vec![response])
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
 
-#[derive(Clone)]
 pub struct Help {
-    commands: HashSet<String>,
+    commands: RwLock<HashSet<String>>,
 }
 
 impl Help {
     pub fn new() -> Result<Self, VarError> {
         Ok(Help {
-            commands: HashSet::new(),
+            commands: RwLock::new(HashSet::new()),
         })
     }
 }

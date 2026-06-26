@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::env;
 use std::env::VarError;
 use std::error::Error;
+use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 const DEFAULT_ITEM_PER_PAGE: usize = 100;
@@ -35,9 +36,9 @@ impl Module for GithubOrgs {
         .concat()
     }
 
-    async fn module_offering(&mut self, _modules: &[ModuleData]) {}
+    async fn module_offering(&self, _modules: &[ModuleData]) {}
 
-    async fn run(&mut self, variation: usize) -> Option<Vec<Message>> {
+    async fn run(&self, variation: usize) -> Option<Vec<Message>> {
         match variation {
             0 => self.run_all_repos().await,
             1 => {
@@ -55,51 +56,53 @@ impl Module for GithubOrgs {
         ModuleCapabilities::default()
     }
 
-    async fn variation_durations(&mut self) -> Vec<Duration> {
+    fn variation_durations(&self) -> Vec<Duration> {
         let day_s = 60 * 60 * 24;
         vec![Duration::from_secs(3600), Duration::from_secs(day_s)]
     }
 
-    async fn trigger(&mut self, _message: &str) -> Option<Vec<MessageResponse>> {
+    async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         None
     }
 
-    async fn send_message(&mut self, _messages: &[Message]) {}
+    async fn send_message(&self, _messages: &[Message]) {}
 
-    async fn read_message(&mut self) -> Option<Vec<MessageCtx>> {
+    async fn read_message(&self) -> Option<Vec<MessageCtx>> {
         None
     }
 
-    async fn resp_message(&mut self, _parent: MessageCtx, _message: Message) {}
+    async fn resp_message(&self, _parent: MessageCtx, _message: Message) {}
 }
-#[derive(Clone)]
 pub struct GithubOrgs {
-    orgs: Vec<GithubOrg>,
+    orgs: RwLock<Vec<GithubOrg>>,
 }
 
 impl GithubOrgs {
     pub fn new() -> Result<Self, VarError> {
-        let mut orgs = GithubOrgs { orgs: Vec::new() };
+        let mut orgs: Vec<GithubOrg> = Vec::new();
         for i in 0..100 {
             let org_name = env::var(format!("GITHUB_ORG_{}_NAME", i));
             match org_name {
                 Ok(org_name) => {
                     info!("github organisation configured: {}", org_name);
                     let new_org = GithubOrg::new(org_name.as_str())?;
-                    orgs.orgs.push(new_org);
+                    orgs.push(new_org);
                 }
                 _ => break,
             }
         }
-        if orgs.orgs.is_empty() {
+        if orgs.is_empty() {
             warn!("github_orgs module enabled bot not configuration provided");
         }
-        Ok(orgs)
+        Ok(GithubOrgs {
+            orgs: RwLock::new(orgs),
+        })
     }
 
-    async fn run_all_repos(&mut self) -> Option<Vec<Message>> {
+    async fn run_all_repos(&self) -> Option<Vec<Message>> {
         let mut all_messages = Vec::new();
-        for org in self.orgs.iter_mut() {
+        let mut orgs = self.orgs.write().await;
+        for org in orgs.iter_mut() {
             trace!("run on org {}...", org.name);
             if let Some(mut messages) = org.run().await {
                 all_messages.append(&mut messages);
@@ -111,8 +114,9 @@ impl GithubOrgs {
         Some(all_messages)
     }
 
-    async fn update_repo_listing(&mut self) {
-        for org in self.orgs.iter_mut() {
+    async fn update_repo_listing(&self) {
+        let mut orgs = self.orgs.write().await;
+        for org in orgs.iter_mut() {
             trace!("update repo listing for org {}", org.name);
             org.update_repo_listing().await;
         }
@@ -193,7 +197,6 @@ impl GithubOrg {
             let resp = match agent
                 .get(url.as_str())
                 .header("Authorization", &format!("token {}", self.github_token))
-                .header("User-Agent", "richard/0.0.0")
                 .header("Accept", "application/vnd.github+json")
                 .form(&params)
                 .send()
