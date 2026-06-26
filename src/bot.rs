@@ -195,7 +195,7 @@ impl Bot {
                 let module = module.clone();
                 let duration = *duration;
                 let mailbox_tx = mailbox_tx.clone();
-                tasks.spawn(tokio::spawn(async move {
+                tasks.spawn(async move {
                     let module = module.clone();
                     loop {
                         if let Some(messages) = module.module.run(variation).await {
@@ -205,27 +205,22 @@ impl Bot {
                         }
                         sleep(duration).await;
                     }
-                }));
+                });
             }
         }
         let modules = self.modules.clone();
-        tasks.spawn(tokio::spawn(async move {
+        tasks.spawn(async move {
             let modules = modules;
             loop {
-                match mailbox_rx.try_recv() {
-                    Ok(messages) => {
-                        for module in modules.iter() {
-                            if module.capabilities.send_message {
-                                module.module.send_message(&messages).await;
-                            }
+                while let Some(messages) = mailbox_rx.recv().await {
+                    for module in modules.iter() {
+                        if module.capabilities.send_message {
+                            module.module.send_message(&messages).await;
                         }
                     }
-                    Err(_) => {
-                        sleep(Duration::from_secs(10)).await;
-                    }
-                };
+                }
             }
-        }));
+        });
         tasks.join_next().await;
     }
 

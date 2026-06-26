@@ -1,9 +1,21 @@
-use reqwest::Client;
-use tokio::time::Duration;
+use std::{sync::LazyLock, time::Duration};
 
-const DEFAULT_TIMEOUT_MS: u64 = 10_000;
+use reqwest::Client;
+
+static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+static CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        .user_agent(USER_AGENT)
+        .tcp_keepalive(Duration::from_secs(30))
+        .pool_max_idle_per_host(10)
+        .pool_idle_timeout(Duration::from_secs(90))
+        .http2_adaptive_window(true)
+        .build()
+        .expect("Could not build HTTP client")
+});
 
 pub fn request_agent() -> Result<Client, reqwest::Error> {
-    let default_duration = Duration::from_millis(DEFAULT_TIMEOUT_MS);
-    Client::builder().timeout(default_duration).build()
+    let client = &*CLIENT;
+    Ok(client.clone())
 }

@@ -1,6 +1,5 @@
 use crate::utils::request_agent;
-use log::info;
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use reqwest::StatusCode;
 use std::cmp::min;
 use std::env::{self, VarError};
@@ -16,7 +15,7 @@ use async_trait::async_trait;
 
 const HIGH_ERROR_RATE: f32 = 0.1;
 pub struct DownDetectors {
-    watch_list: RwLock<Vec<DownDetector>>,
+    watch_list: Vec<RwLock<DownDetector>>,
 }
 
 #[async_trait]
@@ -70,11 +69,11 @@ impl Module for DownDetectors {
     async fn trigger(&self, _message: &str) -> Option<Vec<MessageResponse>> {
         trace!("responding to /status");
         let mut response = String::new();
-        let watch_list = self.watch_list.read().await;
-        for e in watch_list.iter() {
+        for e in self.watch_list.iter() {
+            let lock = e.read().await;
             let s = format!(
                 "{}: alive={}, error_rate={:.2}\n",
-                e.name, e.alive, e.error_rate
+                lock.name, lock.alive, lock.error_rate
             );
             response.push_str(s.as_str());
         }
@@ -100,7 +99,7 @@ impl DownDetectors {
                 (Ok(name), Ok(url)) => {
                     info!("down detector on {} configured", name);
                     let new = DownDetector::new(name, url);
-                    watch_list.push(new);
+                    watch_list.push(RwLock::new(new));
                 }
                 _ => break,
             }
@@ -108,19 +107,22 @@ impl DownDetectors {
         if watch_list.is_empty() {
             warn!("down detectors module enabled bot not configuration provided");
         }
-        Ok(DownDetectors {
-            watch_list: RwLock::new(watch_list),
-        })
+        Ok(DownDetectors { watch_list })
     }
 
     async fn run_error_rate(&self) {
-        let mut watch_list = self.watch_list.write().await;
-        for down_detector in watch_list.iter_mut() {
-            if let Some(error_rate) = down_detector.update_error_rate().await {
+        for down_detector in self.watch_list.iter() {
+            let (name, url) = {
+                let lock = down_detector.read().await;
+                (lock.name.clone(), lock.url.clone())
+            };
+            let probe = DownDetector::test_url(&name, &url).await;
+            let mut lock = down_detector.write().await;
+            if let Some(error_rate) = lock.update_error_rate(probe) {
                 if error_rate > HIGH_ERROR_RATE {
                     warn!(
                         "high error rate on {}: {:?}%",
-                        down_detector.name,
+                        lock.name,
                         (error_rate * 100.0) as u32
                     );
                 }
@@ -130,9 +132,15 @@ impl DownDetectors {
 
     async fn run_alive(&self) -> Option<Vec<Message>> {
         let mut messages = Vec::<Message>::new();
-        let mut watch_list = self.watch_list.write().await;
-        for down_detector in watch_list.iter_mut() {
-            if let Some(response) = down_detector.alive().await {
+        for down_detector in self.watch_list.iter() {
+            let (name, url) = {
+                let lock = down_detector.read().await;
+                (lock.name.clone(), lock.url.clone())
+            };
+            let probe = DownDetector::test_url(&name, &url).await;
+            let mut lock = down_detector.write().await;
+            let alive_change = lock.update_alive(probe);
+            if let Some(response) = lock.build_alive_message(alive_change) {
                 messages.push(response);
             }
         }
@@ -169,19 +177,19 @@ impl DownDetector {
         }
     }
 
-    async fn test_url(&self) -> Result<(), DownDetectorError> {
+    async fn test_url(name: &str, url: &str) -> Result<(), DownDetectorError> {
         let agent = match request_agent() {
             Ok(agent) => agent,
             Err(err) => {
-                trace!("{}: agent init: {}", self.name, err);
+                trace!("{}: agent init: {}", name, err);
                 return Err(DownDetectorError::AgentInit(err.to_string()));
             }
         };
 
-        let response = match agent.get(&self.url).send().await {
+        let response = match agent.get(url).send().await {
             Ok(response) => response,
             Err(err) => {
-                trace!("{}: post: {}", self.name, err);
+                trace!("{}: post: {}", name, err);
                 return Err(DownDetectorError::from_reqwest(err));
             }
         };
@@ -189,20 +197,20 @@ impl DownDetector {
         match response.status() {
             StatusCode::OK => Ok(()),
             bad_code => {
-                trace!("{}: {}", self.name, bad_code);
+                trace!("{}: {}", name, bad_code);
                 Err(DownDetectorError::Code(bad_code.as_u16()))
             }
         }
     }
 
-    async fn update_alive(&mut self) -> (bool, bool) {
+    fn update_alive(&mut self, probe: Result<(), DownDetectorError>) -> (bool, bool) {
         // Schmitt Trigger based on the number of errors
         // https://en.wikipedia.org/wiki/Schmitt_trigger
         const LOW: u8 = 3;
         const HIGH: u8 = 6;
         const MAX_HIGH: u8 = 10;
         let alive_old = self.alive;
-        self.access_failure_cnt = match self.test_url().await {
+        self.access_failure_cnt = match probe {
             Ok(_) => self.access_failure_cnt.saturating_sub(1),
             Err(e) => {
                 self.last_error = Some(e);
@@ -224,10 +232,10 @@ impl DownDetector {
         (alive_old, self.alive)
     }
 
-    async fn update_error_rate(&mut self) -> Option<f32> {
+    fn update_error_rate(&mut self, probe: Result<(), DownDetectorError>) -> Option<f32> {
         // A simple sliding mean, only providing value once sliding window is full.
         const SIZE: f32 = 100.0;
-        self.error_rate_acc = match self.test_url().await {
+        self.error_rate_acc = match probe {
             Ok(_) => self.error_rate_acc + 0.0 - self.error_rate,
             Err(_) => self.error_rate_acc + 1.0 - self.error_rate,
         };
@@ -240,8 +248,8 @@ impl DownDetector {
         }
     }
 
-    async fn alive(&mut self) -> Option<String> {
-        let response: Option<String> = match self.update_alive().await {
+    fn build_alive_message(&self, alive_change: (bool, bool)) -> Option<String> {
+        let response = match alive_change {
             (true, false) => match &self.last_error {
                 Some(error) => match error {
                     DownDetectorError::AgentInit(err) => {
